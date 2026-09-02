@@ -1,0 +1,281 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Road to Weight Goal",
+        "description": "One entry tracks one person. You can add more entries later.",
+        "data": {
+          "name": "Name",
+          "source_entity": "Weight source",
+          "goal_mode": "Define the goal by"
+        },
+        "data_description": {
+          "source_entity": "A sensor that reports a weight in kilograms, for example from a smart scale. Leave empty to enter weights by hand.",
+          "goal_mode": "The value you pick is the one you set; the other one is calculated from it."
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Enter a name."
+    },
+    "abort": {
+      "already_configured": "An entry with this name already exists."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Road to Weight Goal",
+        "menu_options": {
+          "settings": "Settings",
+          "actions": "Actions"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "source_entity": "Weight source",
+          "goal_mode": "Define the goal by",
+          "min_weight": "Lowest plausible weight",
+          "max_weight": "Highest plausible weight",
+          "tolerance": "On track tolerance",
+          "trend_window_days": "Trend window",
+          "overdue_days": "Remind after",
+          "max_jump": "Largest accepted change",
+          "recalculation_interval": "Extra recalculation",
+          "allow_manual_entry": "Allow manual entry"
+        },
+        "data_description": {
+          "tolerance": "How far the weight may deviate from the plan before the status changes.",
+          "trend_window_days": "0 switches the trend sensor off.",
+          "overdue_days": "Days without a measurement before the reminder fires. 0 switches the reminder off.",
+          "max_jump": "Measurements that differ from the previous one by more than this are ignored and logged. 0 accepts every value.",
+          "recalculation_interval": "Only needed if you plot the sensor history in a third party chart card. 0 recalculates at midnight and after every measurement.",
+          "allow_manual_entry": "Let the manual weight entity record measurements. Off by default when a weight source is configured, because an accidental value is awkward to remove. Always on when there is no source."
+        }
+      },
+      "actions": {
+        "title": "Actions",
+        "description": "Optional actions that run in addition to the events on the event bus. Leave empty to use only the events.",
+        "data": {
+          "script_measurement": "When a weight is recorded",
+          "script_status_changed": "When the status changes",
+          "script_goal_reached": "When the target is reached",
+          "script_goal_ended": "When the end date passes",
+          "script_overdue": "When a measurement is overdue"
+        }
+      }
+    },
+    "error": {
+      "invalid_range": "The lowest plausible weight must be below the highest."
+    }
+  },
+  "selector": {
+    "goal_mode": {
+      "options": {
+        "target": "Target weight",
+        "rate": "Change per week"
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "start_weight": {
+        "name": "Start weight"
+      },
+      "target_weight": {
+        "name": "Target weight"
+      },
+      "rate_per_week": {
+        "name": "Change per week"
+      },
+      "manual_weight": {
+        "name": "Weight to record"
+      }
+    },
+    "date": {
+      "start_date": {
+        "name": "Start date"
+      },
+      "end_date": {
+        "name": "End date"
+      }
+    },
+    "button": {
+      "start_today": {
+        "name": "Start today"
+      },
+      "record_weight": {
+        "name": "Confirm weight"
+      },
+      "confirm_start_today": {
+        "name": "Confirm start today"
+      }
+    },
+    "sensor": {
+      "weight": {
+        "name": "Weight"
+      },
+      "target_weight_today": {
+        "name": "Planned weight"
+      },
+      "deviation": {
+        "name": "Deviation"
+      },
+      "trend": {
+        "name": "Trend"
+      },
+      "remaining": {
+        "name": "Remaining"
+      },
+      "projected_date": {
+        "name": "Projected date"
+      },
+      "last_measurement": {
+        "name": "Last measurement"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "no_goal": "No goal",
+          "ahead": "Ahead",
+          "on_track": "On track",
+          "behind": "Behind",
+          "reached": "Reached",
+          "ended": "Ended"
+        }
+      },
+      "weight_progress": {
+        "name": "Weight progress"
+      },
+      "time_progress": {
+        "name": "Time progress"
+      }
+    }
+  },
+  "services": {
+    "record_weight": {
+      "name": "Record weight",
+      "description": "Records a weight measurement.",
+      "fields": {
+        "weight": {
+          "name": "Weight",
+          "description": "The measured weight in kilograms."
+        },
+        "timestamp": {
+          "name": "Timestamp",
+          "description": "When the weight was measured. Defaults to now."
+        }
+      }
+    },
+    "set_goal": {
+      "name": "Set goal",
+      "description": "Changes several goal values at once.",
+      "fields": {
+        "start_weight": {
+          "name": "Start weight",
+          "description": "Weight the goal starts from."
+        },
+        "target_weight": {
+          "name": "Target weight",
+          "description": "Only accepted when the goal is defined by target weight."
+        },
+        "rate_per_week": {
+          "name": "Change per week",
+          "description": "Only accepted when the goal is defined by change per week."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "First day of the goal."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Last day of the goal."
+        }
+      }
+    },
+    "reset_goal": {
+      "name": "Reset goal",
+      "description": "Clears the goal. Recorded weights are kept."
+    },
+    "ignore_last_measurement": {
+      "name": "Ignore last measurement",
+      "description": "Removes the most recent measurement from the trend, the projection and the status. The recorder keeps its own copy, so the point stays in long term history."
+    },
+    "get_measurements": {
+      "name": "Get measurements",
+      "description": "Returns the recorded measurements.",
+      "fields": {
+        "days": {
+          "name": "Days",
+          "description": "Only return measurements from the last few days."
+        }
+      }
+    },
+    "import_history": {
+      "name": "Import history",
+      "description": "Fills the internal history from weights Home Assistant already recorded, so the trend and the projection work straight away.",
+      "fields": {
+        "source_entity": {
+          "name": "Source",
+          "description": "Entity to read from. Defaults to the configured weight source."
+        },
+        "days": {
+          "name": "Days",
+          "description": "How far back to look."
+        },
+        "replace": {
+          "name": "Overwrite",
+          "description": "Replace values that are already in the internal history. Weights you entered by hand are never overwritten."
+        },
+        "write_statistics": {
+          "name": "Write long term statistics",
+          "description": "Also backfill the long term statistics of this integration's weight sensor, so past weights show up in history graphs. Writes into the recorder database; can be undone under Developer tools, Statistics."
+        }
+      }
+    },
+    "delete_measurement": {
+      "name": "Delete measurement",
+      "description": "Removes a single measurement from the internal history. The recorder keeps its own copy, so the point stays in the short term history graph.",
+      "fields": {
+        "timestamp": {
+          "name": "Timestamp",
+          "description": "When the measurement was recorded. Use the get_measurements action to look it up."
+        },
+        "tolerance_minutes": {
+          "name": "Tolerance",
+          "description": "Match the closest measurement within this many minutes."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "derived_value": {
+      "message": "This value is calculated from the others. Change the goal mode in the options if you want to set it directly. Current mode: {mode}."
+    },
+    "no_target": {
+      "message": "No Road to Weight Goal entity was targeted."
+    },
+    "nothing_to_change": {
+      "message": "Pass at least one goal value."
+    },
+    "no_source_entity": {
+      "message": "No weight source is configured and none was passed to the action."
+    },
+    "no_recorder": {
+      "message": "The recorder is not available, so there is no history to import."
+    },
+    "no_weight_entity": {
+      "message": "The weight sensor of this entry was not found, so no statistics can be written."
+    },
+    "manual_entry_disabled": {
+      "message": "Manual entry is switched off because a weight source is configured. Turn it back on under Configure, Settings."
+    },
+    "no_measurement_found": {
+      "message": "No measurement was found near that timestamp."
+    },
+    "nothing_to_confirm": {
+      "message": "There is no weight waiting to be confirmed. Enter one first."
+    }
+  }
+}

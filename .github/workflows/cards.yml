@@ -1,0 +1,54 @@
+name: Cards
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: card/package-lock.json
+
+      - name: Install dependencies
+        working-directory: card
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: card
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: card
+        run: npm test
+
+      - name: Build
+        working-directory: card
+        run: npm run build
+
+      # The bundle is committed so that installing the integration is enough to
+      # get the cards; nobody should need node to use them. That only works if
+      # the committed file matches the sources, so rebuild and check.
+      - name: Check the committed bundle is current
+        run: |
+          if ! git diff --quiet -- custom_components/weight_goal/www/weight-goal-card.js; then
+            echo "::error::The committed card bundle is out of date."
+            echo "Run 'npm ci && npm run build' in card/ and commit the result."
+            git diff --stat -- custom_components/weight_goal/www/weight-goal-card.js
+            exit 1
+          fi
+
+      - name: Check the bundle carries the manifest version
+        run: |
+          version=$(python3 -c "import json;print(json.load(open('custom_components/weight_goal/manifest.json'))['version'])")
+          head -n 1 custom_components/weight_goal/www/weight-goal-card.js | grep -q "$version" || {
+            echo "::error::Bundle header does not carry manifest version $version."
+            echo "Update card/package.json and card/src/const.ts, then rebuild."
+            exit 1
+          }

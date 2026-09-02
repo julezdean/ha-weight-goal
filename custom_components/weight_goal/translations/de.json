@@ -1,0 +1,281 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Road to Weight Goal",
+        "description": "Ein Eintrag verfolgt eine Person. Weitere Einträge kannst du später hinzufügen.",
+        "data": {
+          "name": "Name",
+          "source_entity": "Gewichtsquelle",
+          "goal_mode": "Ziel festlegen über"
+        },
+        "data_description": {
+          "source_entity": "Ein Sensor, der ein Gewicht in Kilogramm liefert, zum Beispiel von einer smarten Waage. Leer lassen, um Gewichte von Hand einzutragen.",
+          "goal_mode": "Der gewählte Wert ist der, den du einstellst; der andere wird daraus berechnet."
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Bitte einen Namen eingeben."
+    },
+    "abort": {
+      "already_configured": "Ein Eintrag mit diesem Namen existiert bereits."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Road to Weight Goal",
+        "menu_options": {
+          "settings": "Einstellungen",
+          "actions": "Aktionen"
+        }
+      },
+      "settings": {
+        "title": "Einstellungen",
+        "data": {
+          "source_entity": "Gewichtsquelle",
+          "goal_mode": "Ziel festlegen über",
+          "min_weight": "Kleinstes plausibles Gewicht",
+          "max_weight": "Größtes plausibles Gewicht",
+          "tolerance": "Toleranz für „im Plan“",
+          "trend_window_days": "Trendfenster",
+          "overdue_days": "Erinnern nach",
+          "max_jump": "Größte akzeptierte Änderung",
+          "recalculation_interval": "Zusätzliche Neuberechnung",
+          "allow_manual_entry": "Manuelle Eingabe erlauben"
+        },
+        "data_description": {
+          "tolerance": "Wie weit das Gewicht vom Plan abweichen darf, bevor sich der Status ändert.",
+          "trend_window_days": "0 schaltet den Trend-Sensor ab.",
+          "overdue_days": "Tage ohne Messung, bis die Erinnerung ausgelöst wird. 0 schaltet die Erinnerung ab.",
+          "max_jump": "Messungen, die weiter als dieser Wert von der vorherigen abweichen, werden verworfen und protokolliert. 0 akzeptiert jeden Wert.",
+          "recalculation_interval": "Nur nötig, wenn du die Sensor-History in einer fremden Diagrammkarte darstellst. 0 rechnet um Mitternacht und nach jeder Messung neu.",
+          "allow_manual_entry": "Erlaubt der Entität „Gewicht eintragen“, Messungen zu erfassen. Standardmäßig aus, wenn eine Gewichtsquelle konfiguriert ist, weil ein versehentlicher Wert schwer zu entfernen ist. Ohne Quelle immer an."
+        }
+      },
+      "actions": {
+        "title": "Aktionen",
+        "description": "Optionale Aktionen, die zusätzlich zu den Events auf dem Eventbus laufen. Leer lassen, um nur die Events zu nutzen.",
+        "data": {
+          "script_measurement": "Wenn ein Gewicht erfasst wird",
+          "script_status_changed": "Wenn sich der Status ändert",
+          "script_goal_reached": "Wenn das Ziel erreicht ist",
+          "script_goal_ended": "Wenn das Zieldatum vorbei ist",
+          "script_overdue": "Wenn eine Messung überfällig ist"
+        }
+      }
+    },
+    "error": {
+      "invalid_range": "Das kleinste plausible Gewicht muss unter dem größten liegen."
+    }
+  },
+  "selector": {
+    "goal_mode": {
+      "options": {
+        "target": "Zielgewicht",
+        "rate": "Änderung pro Woche"
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "start_weight": {
+        "name": "Startgewicht"
+      },
+      "target_weight": {
+        "name": "Zielgewicht"
+      },
+      "rate_per_week": {
+        "name": "Änderung pro Woche"
+      },
+      "manual_weight": {
+        "name": "Gewicht zum Erfassen"
+      }
+    },
+    "date": {
+      "start_date": {
+        "name": "Startdatum"
+      },
+      "end_date": {
+        "name": "Zieldatum"
+      }
+    },
+    "button": {
+      "start_today": {
+        "name": "Heute als Start"
+      },
+      "record_weight": {
+        "name": "Gewicht bestätigen"
+      },
+      "confirm_start_today": {
+        "name": "Heute als Start bestätigen"
+      }
+    },
+    "sensor": {
+      "weight": {
+        "name": "Gewicht"
+      },
+      "target_weight_today": {
+        "name": "Sollgewicht"
+      },
+      "deviation": {
+        "name": "Abweichung"
+      },
+      "trend": {
+        "name": "Trend"
+      },
+      "remaining": {
+        "name": "Verbleibend"
+      },
+      "projected_date": {
+        "name": "Voraussichtliches Datum"
+      },
+      "last_measurement": {
+        "name": "Letzte Messung"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "no_goal": "Kein Ziel",
+          "ahead": "Voraus",
+          "on_track": "Im Plan",
+          "behind": "Zurück",
+          "reached": "Erreicht",
+          "ended": "Beendet"
+        }
+      },
+      "weight_progress": {
+        "name": "Fortschritt Gewicht"
+      },
+      "time_progress": {
+        "name": "Fortschritt Zeit"
+      }
+    }
+  },
+  "services": {
+    "record_weight": {
+      "name": "Gewicht erfassen",
+      "description": "Erfasst eine Gewichtsmessung.",
+      "fields": {
+        "weight": {
+          "name": "Gewicht",
+          "description": "Das gemessene Gewicht in Kilogramm."
+        },
+        "timestamp": {
+          "name": "Zeitstempel",
+          "description": "Wann gemessen wurde. Standard ist jetzt."
+        }
+      }
+    },
+    "set_goal": {
+      "name": "Ziel setzen",
+      "description": "Ändert mehrere Zielwerte auf einmal.",
+      "fields": {
+        "start_weight": {
+          "name": "Startgewicht",
+          "description": "Gewicht, von dem das Ziel ausgeht."
+        },
+        "target_weight": {
+          "name": "Zielgewicht",
+          "description": "Wird nur angenommen, wenn das Ziel über das Zielgewicht festgelegt ist."
+        },
+        "rate_per_week": {
+          "name": "Änderung pro Woche",
+          "description": "Wird nur angenommen, wenn das Ziel über die Änderung pro Woche festgelegt ist."
+        },
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Erster Tag des Ziels."
+        },
+        "end_date": {
+          "name": "Zieldatum",
+          "description": "Letzter Tag des Ziels."
+        }
+      }
+    },
+    "reset_goal": {
+      "name": "Ziel zurücksetzen",
+      "description": "Löscht das Ziel. Erfasste Gewichte bleiben erhalten."
+    },
+    "ignore_last_measurement": {
+      "name": "Letzte Messung ignorieren",
+      "description": "Entfernt die letzte Messung aus Trend, Prognose und Status. Der Recorder behält seine eigene Kopie, der Punkt bleibt also in der Langzeit-History sichtbar."
+    },
+    "get_measurements": {
+      "name": "Messungen abrufen",
+      "description": "Gibt die erfassten Messungen zurück.",
+      "fields": {
+        "days": {
+          "name": "Tage",
+          "description": "Nur Messungen der letzten Tage zurückgeben."
+        }
+      }
+    },
+    "import_history": {
+      "name": "History importieren",
+      "description": "Füllt die interne History aus Gewichten, die Home Assistant bereits aufgezeichnet hat, damit Trend und Prognose sofort funktionieren.",
+      "fields": {
+        "source_entity": {
+          "name": "Quelle",
+          "description": "Entität, aus der gelesen wird. Standard ist die konfigurierte Gewichtsquelle."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Wie weit zurück gesucht wird."
+        },
+        "replace": {
+          "name": "Überschreiben",
+          "description": "Werte ersetzen, die bereits in der internen History stehen. Von Hand eingetragene Gewichte werden nie überschrieben."
+        },
+        "write_statistics": {
+          "name": "Langzeitstatistiken schreiben",
+          "description": "Zusätzlich die Langzeitstatistiken des Gewichtssensors dieser Integration rückwirkend füllen, damit vergangene Gewichte in Verlaufsgrafiken erscheinen. Schreibt in die Recorder-Datenbank; rückgängig zu machen unter Entwicklerwerkzeuge, Statistiken."
+        }
+      }
+    },
+    "delete_measurement": {
+      "name": "Messung löschen",
+      "description": "Entfernt eine einzelne Messung aus der internen History. Der Recorder behält seine eigene Kopie, der Punkt bleibt also in der Kurzzeit-Verlaufsgrafik.",
+      "fields": {
+        "timestamp": {
+          "name": "Zeitstempel",
+          "description": "Wann die Messung erfasst wurde. Über die Aktion „Messungen abrufen“ nachschlagen."
+        },
+        "tolerance_minutes": {
+          "name": "Toleranz",
+          "description": "Die nächstgelegene Messung innerhalb dieser Minutenzahl treffen."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "derived_value": {
+      "message": "Dieser Wert wird aus den anderen berechnet. Ändere den Modus in den Optionen, wenn du ihn direkt setzen willst. Aktueller Modus: {mode}."
+    },
+    "no_target": {
+      "message": "Es wurde keine Road-to-Weight-Goal-Entität ausgewählt."
+    },
+    "nothing_to_change": {
+      "message": "Mindestens einen Zielwert übergeben."
+    },
+    "no_source_entity": {
+      "message": "Es ist keine Gewichtsquelle konfiguriert und der Aktion wurde keine übergeben."
+    },
+    "no_recorder": {
+      "message": "Der Recorder ist nicht verfügbar, es gibt also keine History zum Importieren."
+    },
+    "no_weight_entity": {
+      "message": "Der Gewichtssensor dieses Eintrags wurde nicht gefunden, es können keine Statistiken geschrieben werden."
+    },
+    "manual_entry_disabled": {
+      "message": "Die manuelle Eingabe ist abgeschaltet, weil eine Gewichtsquelle konfiguriert ist. Unter Konfigurieren, Einstellungen wieder einschalten."
+    },
+    "no_measurement_found": {
+      "message": "In der Nähe dieses Zeitstempels wurde keine Messung gefunden."
+    },
+    "nothing_to_confirm": {
+      "message": "Es wartet kein Gewicht auf Bestätigung. Trage zuerst eines ein."
+    }
+  }
+}

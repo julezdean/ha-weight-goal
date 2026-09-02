@@ -1,0 +1,147 @@
+record_weight:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    weight:
+      required: true
+      example: 78.4
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    timestamp:
+      required: false
+      example: "2026-09-01T07:30:00+02:00"
+      selector:
+        datetime:
+
+set_goal:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    start_weight:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    target_weight:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    rate_per_week:
+      required: false
+      selector:
+        number:
+          min: -5
+          max: 5
+          step: 0.01
+          mode: box
+    start_date:
+      required: false
+      selector:
+        date:
+    end_date:
+      required: false
+      selector:
+        date:
+
+reset_goal:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+
+ignore_last_measurement:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+
+get_measurements:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    days:
+      required: false
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 3650
+          step: 1
+          mode: box
+
+import_history:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    source_entity:
+      required: false
+      selector:
+        entity:
+          domain:
+            - sensor
+            - number
+            - input_number
+    days:
+      required: false
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 3650
+          step: 1
+          unit_of_measurement: d
+          mode: box
+    replace:
+      required: false
+      default: false
+      selector:
+        boolean:
+    write_statistics:
+      required: false
+      default: false
+      selector:
+        boolean:
+
+delete_measurement:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    timestamp:
+      required: true
+      example: "2026-09-01T07:42:00+02:00"
+      selector:
+        datetime:
+    tolerance_minutes:
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 1440
+          step: 1
+          unit_of_measurement: min
+          mode: box
