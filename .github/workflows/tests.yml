@@ -27,7 +27,10 @@ jobs:
           pip install "$version"
 
       - name: Lint
-        run: ruff check --select F,E9 custom_components tests
+        # PLE1205/PLE1206 catch a logging call whose arguments do not match its
+        # placeholders. That writes a logging traceback instead of the message,
+        # and only on the branch that logs it, so nothing else would notice.
+        run: ruff check --select F,E9,PLE1205,PLE1206 custom_components tests
 
       - name: Test
         run: pytest tests -q

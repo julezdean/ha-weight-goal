@@ -86,7 +86,7 @@ instance runs in. Display names are translated.
 | `date.<name>_end_date` | Date | Last day of the goal. It counts towards the goal in full. |
 | `button.<name>_record_weight` | Button | Records the weight held above. Unavailable while there is nothing to confirm. |
 | `button.<name>_start_today` | Button | Stages a move of the goal start to today. Changes nothing on its own. |
-| `button.<name>_confirm_start_today` | Button | Applies it: start weight becomes the latest measurement, start date becomes today, the end date is untouched. Available for two minutes after staging. |
+| `button.<name>_confirm_start_today` | Button | Applies it: start weight becomes the latest measurement, start date becomes today, the end date is untouched. Available for thirty seconds after staging. |
 | `sensor.<name>_weight` | Sensor | The current weight. This is the entity with the history. |
 | `sensor.<name>_target_weight_today` | Sensor | Where the plan says you should be. |
 | `sensor.<name>_deviation` | Sensor | Weight minus plan. Read the sign together with `direction`. |
@@ -158,7 +158,8 @@ a word. Use whichever suits the card you are building.
 ### Moving the start of the goal
 
 `start_today` also takes two presses. The first one stages the change and makes
-`confirm_start_today` available for two minutes; the second one applies it. The
+`confirm_start_today` available for thirty seconds; the second one applies it.
+The
 confirm button carries `new_start_weight`, `new_start_date` and the current
 values as attributes, so you can check what is about to happen before pressing.
 

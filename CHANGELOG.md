@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
   the card, with a line saying where it comes from. It has always been read
   only, but nothing said so, which made a field that refuses to be edited look
   broken rather than deliberate.
+- A staged `start_today` expires after thirty seconds rather than two minutes.
+  The second press exists to catch a stray tap, and a confirmation still
+  standing minutes later is one nobody connects to what they pressed.
 - `range: goal` covers the goal period and nothing else. It used to pull the
   chart back to the earliest reading it had loaded, up to a week before the
   start, so the option disagreed with the name it carries in the editor.
@@ -44,6 +47,9 @@ All notable changes to this project are documented here. The format follows
   derived it carried a precision that its own step of 0.01 cannot enter. Only
   the display is rounded: the stored value keeps every decimal, so switching
   the goal mode derives the same target back.
+- A debug line about a missed goal end passed four arguments to three
+  placeholders, and the wrong constant among them, so it wrote a logging
+  traceback instead of the message it meant.
 - The hint under the armed restart button was hardcoded English while its
   translation sat unused in both locale files, so a German instance got one
   English paragraph in an otherwise German card.

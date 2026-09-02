@@ -1076,8 +1076,7 @@ class WeightGoalManager:
                         "%s: goal end at %s missed by more than %s hours, not replayed",
                         self.entry.title,
                         due.isoformat(),
-                        ARM_TIMEOUT_SECONDS,
-    CATCHUP_GRACE_HOURS,
+                        CATCHUP_GRACE_HOURS,
                     )
 
         if self.overdue_days > 0 and (last := self.last_measurement) is not None:

@@ -140,8 +140,10 @@ ATTR_TOLERANCE_MINUTES: Final = "tolerance_minutes"
 #: Default window used to match a timestamp against a stored measurement.
 DEFAULT_MATCH_MINUTES: Final = 5
 
-#: How long a pending "start today" stays confirmable.
-ARM_TIMEOUT_SECONDS: Final = 120
+#: How long a pending "start today" stays confirmable. Short on purpose:
+#: the point is to catch a stray tap, and a confirmation still standing
+#: minutes later is one nobody connects to what they pressed any more.
+ARM_TIMEOUT_SECONDS: Final = 30
 
 # --- Events -------------------------------------------------------------------
 
