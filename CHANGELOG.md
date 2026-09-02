@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - `header: compact` replaces the icon, the end date and the status with one line
   of name and current weight, for a card that is mostly chart.
+- `show_record` and `show_restart` switch the two actions separately. Saving a
+  reading and restarting the goal today have little to do with each other: a
+  scale user never types a weight, and a goal nobody restarts does not need the
+  button in the way. `show_actions: false` still hides both.
 - `show_badges` turns the badges on and off on their own. They were part of the
   current weight before, so hiding the big number also dropped the chips
   underneath it; the two are separate sections now.
@@ -40,6 +44,9 @@ All notable changes to this project are documented here. The format follows
   derived it carried a precision that its own step of 0.01 cannot enter. Only
   the display is rounded: the stored value keeps every decimal, so switching
   the goal mode derives the same target back.
+- The hint under the armed restart button was hardcoded English while its
+  translation sat unused in both locale files, so a German instance got one
+  English paragraph in an otherwise German card.
 - The card's read only goal fields pointed `aria-describedby` at an element
   that did not exist, so a screen reader announced nothing where an
   explanation was promised.

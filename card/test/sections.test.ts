@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
+import "../src/components/wg-actions";
 import "../src/components/wg-badges";
 import "../src/components/wg-goal-editor";
 import "../src/components/wg-header";
@@ -14,6 +15,8 @@ const ENTITIES = {
   target_weight: "number.julien_target_weight",
   rate_per_week: "number.julien_rate_per_week",
   start_date: "date.julien_start_date",
+  manual_weight: "number.julien_manual_weight",
+  start_today: "button.julien_start_today",
   end_date: "date.julien_end_date",
   last_measurement: "sensor.julien_last_measurement",
   trend: "sensor.julien_trend",
@@ -26,6 +29,8 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     [ENTITIES.target_weight]: "74",
     [ENTITIES.rate_per_week]: "-0.38",
     [ENTITIES.start_date]: "2026-06-14",
+    [ENTITIES.manual_weight]: "unknown",
+    [ENTITIES.start_today]: "unknown",
     [ENTITIES.end_date]: "2026-09-20",
     [ENTITIES.last_measurement]: new Date().toISOString(),
     [ENTITIES.trend]: "-0.6",
@@ -54,6 +59,11 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     deviation: 0.1,
     goalMode,
     measurementSource: "sensor",
+    manualAvailable: true,
+    manualWeight: null,
+    manualPending: false,
+    startTodayArmed: false,
+    goal: { begin: 0, finish: 1 },
     context: { name: "Julien", entities: ENTITIES },
   } as unknown as GoalModel;
 
@@ -158,5 +168,70 @@ describe("the header", () => {
     expect(root.querySelector("button.status")).toBeNull();
     expect(root.textContent).toContain("Julien");
     expect(root.textContent).toContain("74");
+  });
+});
+
+describe("the two actions", () => {
+  const save = (root: ShadowRoot) =>
+    [...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Save reading"),
+    );
+  const restart = (root: ShadowRoot) =>
+    [...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Restart today"),
+    );
+
+  it("shows both by default", async () => {
+    const { hass, model } = build("target");
+    const root = (await render("wg-actions", { hass, model })).shadowRoot!;
+    expect(save(root)).toBeTruthy();
+    expect(restart(root)).toBeTruthy();
+  });
+
+  it("hides the reading entry on its own", async () => {
+    // A scale user never types a weight; the restart button still belongs.
+    const { hass, model } = build("target");
+    const root = (await render("wg-actions", {
+      hass,
+      model,
+      showRecord: false,
+    })).shadowRoot!;
+    expect(root.querySelector('input[type="number"]')).toBeNull();
+    expect(save(root)).toBeUndefined();
+    expect(restart(root)).toBeTruthy();
+  });
+
+  it("hides the restart on its own", async () => {
+    const { hass, model } = build("target");
+    const root = (await render("wg-actions", {
+      hass,
+      model,
+      showRestart: false,
+    })).shadowRoot!;
+    expect(restart(root)).toBeUndefined();
+    expect(save(root)).toBeTruthy();
+  });
+
+  it("renders nothing at all with both off", async () => {
+    const { hass, model } = build("target");
+    const el = await render("wg-actions", {
+      hass,
+      model,
+      showRecord: false,
+      showRestart: false,
+    });
+    expect(el.shadowRoot!.querySelector(".actions")).toBeNull();
+  });
+
+  it("translates the restart hint", async () => {
+    // The hint used to be hardcoded English while the translation for it sat
+    // unused in both locale files.
+    const { hass, model } = build("target");
+    const german = { ...hass, locale: { language: "de" } } as typeof hass;
+    const root = (await render("wg-actions", {
+      hass: german,
+      model: { ...model, startTodayArmed: true },
+    })).shadowRoot!;
+    expect(root.querySelector(".hint")!.textContent).toContain("Startgewicht");
   });
 });

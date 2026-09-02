@@ -124,7 +124,12 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
             : html`<wg-progress .hass=${this.hass} .model=${model}></wg-progress>`}
 
           ${showActions
-            ? html`<wg-actions .hass=${this.hass} .model=${model}></wg-actions>`
+            ? html`<wg-actions
+                .hass=${this.hass}
+                .model=${model}
+                .showRecord=${config.show_record !== false}
+                .showRestart=${config.show_restart !== false}
+              ></wg-actions>`
             : nothing}
 
           ${config.show_goal_editor === false

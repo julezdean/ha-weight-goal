@@ -349,6 +349,7 @@ Only for the card:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_actions`, `show_goal_editor` | `true` | Individual sections. |
+| `show_record`, `show_restart` | `true` | The two actions on their own. `show_actions: false` still hides both. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 

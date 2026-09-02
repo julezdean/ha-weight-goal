@@ -19,6 +19,12 @@ export class WgActions extends LitElement {
 
   @property({ attribute: false }) public model?: GoalModel;
 
+  /** The two actions are independent: a scale user may never type a weight,
+   * and a goal nobody restarts does not need the button in the way. */
+  @property({ type: Boolean }) public showRecord = true;
+
+  @property({ type: Boolean }) public showRestart = true;
+
   @state() private _draft: string | null = null;
 
   @state() private _error: string | null = null;
@@ -32,8 +38,10 @@ export class WgActions extends LitElement {
     }
     const t = translator(this.hass);
     const entities = model.context.entities;
-    const canEnter = model.manualAvailable && !!entities.manual_weight;
-    const canStartToday = !!entities.start_today && model.goal !== null;
+    const canEnter =
+      this.showRecord && model.manualAvailable && !!entities.manual_weight;
+    const canStartToday =
+      this.showRestart && !!entities.start_today && model.goal !== null;
 
     if (!canEnter && !canStartToday) {
       return nothing;
@@ -97,11 +105,8 @@ export class WgActions extends LitElement {
               </button>`
           : nothing}
       </div>
-      ${model.startTodayArmed
-        ? html`<p class="hint muted">
-            Confirming sets the start weight to your latest reading and the
-            start date to today. The end date stays.
-          </p>`
+      ${canStartToday && model.startTodayArmed
+        ? html`<p class="hint muted">${t("actions.restart_hint")}</p>`
         : nothing}
     `;
   }
