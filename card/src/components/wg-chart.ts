@@ -31,6 +31,7 @@ import {
   type Point,
   type Scale,
 } from "../lib/series";
+import { chartWindow } from "../lib/window";
 import type { GoalModel } from "../lib/goal";
 import type {
   ChartOptions,
@@ -39,8 +40,6 @@ import type {
   Measurement,
   SeriesStyle,
 } from "../types";
-
-const DAY_MS = 86_400_000;
 
 const DEFAULT_STYLES: Record<string, Required<SeriesStyle>> = {
   weight: {
@@ -145,25 +144,7 @@ export class WgChart extends LitElement {
 
   /** The time window the x axis covers. */
   private _window(points: Measurement[]): { from: number; to: number } {
-    const model = this.model;
-    const range = this.options.range ?? "goal";
-    const now = Date.now();
-
-    if (range === "goal" && model?.goal) {
-      // Readings from before the goal started still belong on the chart; they
-      // are the run up that explains where the start weight came from.
-      const from = Math.min(model.goal.begin, points[0]?.t ?? model.goal.begin);
-      const last = points[points.length - 1]?.t ?? now;
-      return { from, to: Math.max(model.goal.finish, last, now) };
-    }
-
-    if (typeof range === "number" && range > 0) {
-      return { from: now - range * DAY_MS, to: now };
-    }
-
-    const from = points[0]?.t ?? now - 30 * DAY_MS;
-    const to = Math.max(points[points.length - 1]?.t ?? now, now);
-    return { from, to: to > from ? to : from + DAY_MS };
+    return chartWindow(this.options.range, this.model?.goal, points, Date.now());
   }
 
   private _renderEmpty(message: string): TemplateResult {

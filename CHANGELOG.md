@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `range: goal` covers the goal period and nothing else. It used to pull the
+  chart back to the earliest reading it had loaded, up to a week before the
+  start, so the option disagreed with the name it carries in the editor.
+  Readings from before the goal are still there under `all` and under a plain
+  number of days, which is what those are for.
+
+### Fixed
+
+- The moving average no longer starts on a partial window when `average` is
+  longer than a week. The card loaded a fixed seven days of readings from
+  before the goal; it now loads a whole average window, so the line is right
+  where the chart begins rather than a few days in.
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

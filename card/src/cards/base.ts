@@ -12,6 +12,7 @@ import { property, state } from "lit/decorators.js";
 
 import { discover } from "../lib/discovery";
 import { fetchMeasurements } from "../lib/measurements";
+import { fetchDays } from "../lib/window";
 import { readGoal, trackedEntities, type GoalModel } from "../lib/goal";
 import { localize } from "../localize";
 import type {
@@ -99,9 +100,7 @@ export abstract class WeightGoalBaseCard<
       return;
     }
     const options = this.chartOptions();
-    const range = options.range ?? "goal";
-    const days =
-      typeof range === "number" ? Math.ceil(range) + 1 : this._goalDays(model);
+    const days = fetchDays(options.range, options.average, model.goal, Date.now());
 
     const stamp = `${model.stamp}|${options.source ?? "measurements"}|${days ?? "all"}`;
     if (stamp === this._requestedStamp) {
@@ -139,14 +138,6 @@ export abstract class WeightGoalBaseCard<
   }
 
   /** How far back to ask for, so the whole goal window is covered. */
-  private _goalDays(model: GoalModel): number | undefined {
-    if (!model.goal) {
-      return 365;
-    }
-    const days = Math.ceil((Date.now() - model.goal.begin) / 86_400_000) + 7;
-    return days > 0 ? Math.min(3650, Math.max(30, days)) : 365;
-  }
-
   protected override shouldUpdate(changed: PropertyValues): boolean {
     return (
       changed.has("_config") ||
