@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-09-02
 
 ### Added
 
@@ -170,6 +170,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.5.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.5.0
 [0.4.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.4.0
 [0.3.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.3.0
 [0.2.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.2.0
