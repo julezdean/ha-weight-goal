@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import "../src/components/wg-badges";
 import "../src/components/wg-goal-editor";
+import "../src/components/wg-header";
 import "../src/components/wg-hero";
 import type { GoalModel } from "../src/lib/goal";
 import type { HomeAssistant } from "../src/types";
@@ -130,5 +131,32 @@ describe("the derived goal field", () => {
       expect(input.disabled).toBe(false);
     }
     expect(root.querySelector("#derived")).toBeNull();
+  });
+});
+
+describe("the header", () => {
+  it("is the icon, the end date and the status by default", async () => {
+    const { hass, model } = build("target");
+    const root = (await render("wg-header", { hass, model, name: "Julien" })).shadowRoot!;
+    expect(root.querySelector(".badge")).not.toBeNull();
+    expect(root.querySelector("button.status")).not.toBeNull();
+  });
+
+  it("is one line of name and weight when compact", async () => {
+    // What the separate chart card used to provide: a heading small enough to
+    // sit over a card that is mostly chart.
+    const { hass, model } = build("target");
+    const root = (await render("wg-header", {
+      hass,
+      model,
+      name: "Julien",
+      compact: true,
+    })).shadowRoot!;
+
+    expect(root.querySelector(".compact")).not.toBeNull();
+    expect(root.querySelector(".badge")).toBeNull();
+    expect(root.querySelector("button.status")).toBeNull();
+    expect(root.textContent).toContain("Julien");
+    expect(root.textContent).toContain("74");
   });
 });

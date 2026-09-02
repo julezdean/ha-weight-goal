@@ -216,6 +216,9 @@ export type BadgeConfig = BuiltinBadge | CustomBadge;
 
 export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_header?: boolean;
+  /** `compact` is the one line name and weight; `full` the icon, dates and
+   * status. */
+  header?: "full" | "compact";
   show_hero?: boolean;
   show_badges?: boolean;
   show_chart?: boolean;
@@ -224,10 +227,6 @@ export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_goal_editor?: boolean;
   badges?: BadgeConfig[];
   chart?: ChartOptions;
-}
-
-export interface WeightGoalChartCardConfig extends BaseCardConfig, ChartOptions {
-  show_title?: boolean;
 }
 
 export interface LovelaceCard extends HTMLElement {

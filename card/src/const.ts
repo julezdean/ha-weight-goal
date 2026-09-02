@@ -1,7 +1,6 @@
 export const DOMAIN = "weight_goal";
 
 export const CARD_TYPE = "weight-goal-card";
-export const CHART_CARD_TYPE = "weight-goal-chart-card";
 
 export const CARD_VERSION = "0.5.0-beta.1";
 

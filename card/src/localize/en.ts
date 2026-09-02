@@ -10,9 +10,6 @@ export const en = {
   "picker.card_name": "Weight goal",
   "picker.card_description":
     "Weight against the planned trajectory, with the chart, the progress bars and the actions of one Road to Weight Goal entry.",
-  "picker.chart_name": "Weight goal chart",
-  "picker.chart_description":
-    "Only the chart: readings, the plan line from start to target weight and the tolerance band.",
   "card.fallback_name": "Weight goal",
 
   "card.no_entities":
@@ -116,13 +113,15 @@ export const en = {
   "editor.grid": "Grid lines",
   "editor.axis": "Axis labels",
   "editor.show_header": "Header",
+  "editor.header": "Header style",
+  "editor.header_full": "Full",
+  "editor.header_compact": "Compact",
   "editor.show_hero": "Current weight",
   "editor.show_badges": "Badges",
   "editor.show_chart": "Chart",
   "editor.show_progress": "Progress bars",
   "editor.show_actions": "Actions",
   "editor.show_goal_editor": "Goal settings",
-  "editor.show_title": "Title",
 } as const;
 
 export type TranslationKey = keyof typeof en;

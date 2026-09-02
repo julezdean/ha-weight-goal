@@ -10,15 +10,13 @@ describe("built bundle", () => {
     await import("../../custom_components/weight_goal/www/weight-goal-card.js");
   });
 
-  it("registers both cards", () => {
+  it("registers the card", () => {
     expect(customElements.get("weight-goal-card")).toBeTruthy();
-    expect(customElements.get("weight-goal-chart-card")).toBeTruthy();
   });
 
-  it("registers them in the picker", () => {
+  it("registers it in the picker", () => {
     expect((window as any).customCards.map((c: any) => c.type)).toEqual([
       "weight-goal-card",
-      "weight-goal-chart-card",
     ]);
   });
 
@@ -32,11 +30,10 @@ describe("built bundle", () => {
   });
 
   // chartOptions() copies the chart settings field by field, so a new option
-  // is silently dropped unless it is added there too. Both cards, both forms.
+  // is silently dropped unless it is added there too. Both forms.
   it.each([
     ["weight-goal-card", false],
     ["weight-goal-card", true],
-    ["weight-goal-chart-card", false],
   ])("passes every chart option through from %s (nested: %s)", (tag, nested) => {
     const chart = {
       source: "history",

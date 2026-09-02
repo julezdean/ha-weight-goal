@@ -10,9 +10,6 @@ export const de: Record<TranslationKey, string> = {
   "picker.card_name": "Gewichtsziel",
   "picker.card_description":
     "Das Gewicht im Verhältnis zur geplanten Kurve, mit Diagramm, Fortschrittsbalken und den Aktionen eines Ziels aus „Road to Weight Goal“.",
-  "picker.chart_name": "Gewichtsziel-Diagramm",
-  "picker.chart_description":
-    "Nur das Diagramm: Messwerte, die Planlinie vom Start- zum Zielgewicht und das Toleranzband.",
   "card.fallback_name": "Gewichtsziel",
 
   "card.no_entities":
@@ -119,11 +116,13 @@ export const de: Record<TranslationKey, string> = {
   "editor.grid": "Gitterlinien",
   "editor.axis": "Achsenbeschriftung",
   "editor.show_header": "Kopfzeile",
+  "editor.header": "Header-Stil",
+  "editor.header_full": "Vollständig",
+  "editor.header_compact": "Kompakt",
   "editor.show_hero": "Aktuelles Gewicht",
   "editor.show_badges": "Badges",
   "editor.show_chart": "Diagramm",
   "editor.show_progress": "Fortschrittsbalken",
   "editor.show_actions": "Aktionen",
   "editor.show_goal_editor": "Zieleinstellungen",
-  "editor.show_title": "Titel",
 };

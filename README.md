@@ -28,8 +28,8 @@ in yourself. Nothing leaves your instance.
 - Events on the event bus, plus optional actions you can configure in the UI.
 - Nothing is polled. The integration reacts to your weight source and to a
   small number of scheduled points in time.
-- Two Lovelace cards ship with the integration: the whole goal, and the chart on
-  its own. No resource to add, no separate HACS entry.
+- One Lovelace card ships with the integration, from the whole goal down to the
+  chart on its own. No resource to add, no separate HACS entry.
 - Timers survive a restart. What fell into a short outage is caught up.
 
 ## Installation
@@ -239,11 +239,11 @@ and run the import again.
 
 ## Cards
 
-Two Lovelace cards ship with the integration. There is nothing to download and
+A Lovelace card ships with the integration. There is nothing to download and
 nothing to add by hand: the integration serves the bundle and registers it as a
-Lovelace resource itself, the same way HACS registers a card. After a restart
-both appear in the card picker under **Weight goal** and **Weight goal chart**,
-and the resource is visible under **Settings → Dashboards → Resources**.
+Lovelace resource itself, the same way HACS registers a card. After a restart it
+appears in the card picker under **Weight goal**, and the resource is visible
+under **Settings → Dashboards → Resources**.
 
 If Lovelace runs in YAML mode the integration does not touch your resource list.
 It logs the line to add instead:
@@ -270,16 +270,25 @@ It shows the current weight and how far it is from the plan, the chart, the two
 progress bars next to each other, the actions that are currently available, and
 a collapsible section for the goal itself.
 
-### The chart card
+### The chart on its own
+
+For a dashboard that shows the numbers elsewhere, switch the other sections off.
+`header: compact` replaces the icon, dates and status with a single line of name
+and current weight, small enough to sit over a card that is mostly chart:
 
 ```yaml
-type: custom:weight-goal-chart-card
+type: custom:weight-goal-card
 entity: sensor.alex_status
+header: compact
+show_hero: false
+show_badges: false
+show_progress: false
+show_actions: false
+show_goal_editor: false
 range: 90
 average: 7
 ```
 
-The same chart on its own, for a dashboard that shows the numbers elsewhere.
 Two cards for the same goal on one dashboard share their data, so this costs one
 request rather than two.
 
@@ -338,6 +347,7 @@ Only for the card:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_actions`, `show_goal_editor` | `true` | Individual sections. |
+| `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 
 ### Badges
@@ -377,15 +387,8 @@ Sentences that belong to the cards themselves are translated in
 `de.ts`, translate the values and register it in `index.ts` — TypeScript will
 tell you if you miss a key.
 
-One exception: the two entries in the card picker are registered when the
-bundle loads, before Home Assistant tells it anything, so those follow the
-browser's language.
-
-Only for the chart card:
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `show_title` | `true` | Name and current weight above the chart. |
+One exception: the card picker entry is registered when the bundle loads,
+before Home Assistant tells it anything, so it follows the browser's language.
 
 ### Examples
 
@@ -412,7 +415,7 @@ show_goal_editor: false
 A wide chart in your own colours, without the raw readings:
 
 ```yaml
-type: custom:weight-goal-chart-card
+type: custom:weight-goal-card
 entity: sensor.alex_status
 range: 180
 average: 7
@@ -434,7 +437,7 @@ styles:
 A tight axis, for when the readings move a kilogram inside a ten kilogram goal:
 
 ```yaml
-type: custom:weight-goal-chart-card
+type: custom:weight-goal-card
 entity: sensor.alex_status
 range: 30
 y_axis:
@@ -446,7 +449,7 @@ A fixed axis, so the chart does not rescale under you every time a reading
 lands:
 
 ```yaml
-type: custom:weight-goal-chart-card
+type: custom:weight-goal-card
 entity: sensor.alex_status
 y_axis:
   min: 72

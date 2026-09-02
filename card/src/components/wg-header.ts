@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import { STATUS_COLOR, STATUS_ICON } from "../const";
-import { stateOf } from "../lib/format";
+import { formatNumber, stateOf } from "../lib/format";
 import { formatState, localize } from "../localize";
 import { sharedStyles } from "../shared-styles";
 import type { GoalModel } from "../lib/goal";
@@ -18,6 +18,10 @@ export class WgHeader extends LitElement {
 
   @property() public icon?: string;
 
+  /** The one line form: the name and the current weight, nothing else. For a
+   * card that is mostly chart, where the full header outweighs what it heads. */
+  @property({ type: Boolean }) public compact = false;
+
   protected override render(): TemplateResult | typeof nothing {
     const model = this.model;
     if (!model) {
@@ -25,6 +29,20 @@ export class WgHeader extends LitElement {
     }
     const status = model.status;
     const colour = STATUS_COLOR[status] ?? STATUS_COLOR.no_goal;
+
+    if (this.compact) {
+      return html`
+        <div class="compact">
+          <span class="name" title=${this.name}>${this.name}</span>
+          ${model.currentWeight === null
+            ? nothing
+            : html`<span class="now" style=${`color:${colour}`}
+                >${formatNumber(this.hass, model.currentWeight, 1)}
+                ${model.unit}</span
+              >`}
+        </div>
+      `;
+    }
     // The integration already translates its own status values, so the label
     // is whatever the more-info dialog would show rather than a second copy of
     // the same six words living in the card.
@@ -84,6 +102,20 @@ export class WgHeader extends LitElement {
         display: flex;
         align-items: center;
         gap: 12px;
+      }
+      .compact {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .compact .name {
+        font-size: 15px;
+      }
+      .now {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
       .badge {
         display: flex;

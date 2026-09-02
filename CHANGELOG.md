@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `header: compact` replaces the icon, the end date and the status with one line
+  of name and current weight, for a card that is mostly chart.
 - `show_badges` turns the badges on and off on their own. They were part of the
   current weight before, so hiding the big number also dropped the chips
   underneath it; the two are separate sections now.
@@ -23,6 +25,14 @@ All notable changes to this project are documented here. The format follows
   start, so the option disagreed with the name it carries in the editor.
   Readings from before the goal are still there under `all` and under a plain
   number of days, which is what those are for.
+
+### Removed
+
+- The separate chart card, `custom:weight-goal-chart-card`. The card does the
+  same thing with the other sections switched off, and `header: compact` covers
+  the one thing that was only the chart card's: a heading small enough to sit
+  over a chart. A dashboard still using the old type has to be changed to
+  `custom:weight-goal-card`, or the card will not load at all.
 
 ### Fixed
 

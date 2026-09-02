@@ -271,13 +271,13 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   grid: "editor.grid",
   axis: "editor.axis",
   show_header: "editor.show_header",
+  header: "editor.header",
   show_hero: "editor.show_hero",
   show_badges: "editor.show_badges",
   show_chart: "editor.show_chart",
   show_progress: "editor.show_progress",
   show_actions: "editor.show_actions",
   show_goal_editor: "editor.show_goal_editor",
-  show_title: "editor.show_title",
 };
 
 const HELPER_KEYS: Record<string, TranslationKey> = {

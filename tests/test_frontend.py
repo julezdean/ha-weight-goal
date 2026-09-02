@@ -19,14 +19,12 @@ BUNDLE = (
 
 
 def test_bundle_ships_with_the_integration() -> None:
-    """The built cards are part of the distributed integration."""
+    """The built card is part of the distributed integration."""
     assert BUNDLE.is_file(), (
         "Build the cards with `npm ci && npm run build` in card/ before"
         " releasing; the bundle is committed so users do not need node."
     )
-    text = BUNDLE.read_text(encoding="utf-8")
-    assert "weight-goal-card" in text
-    assert "weight-goal-chart-card" in text
+    assert "weight-goal-card" in BUNDLE.read_text(encoding="utf-8")
 
 
 def test_bundle_version_matches_the_manifest() -> None:

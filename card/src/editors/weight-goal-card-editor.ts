@@ -57,6 +57,18 @@ export class WeightGoalCardEditor extends LitElement {
               { name: "show_goal_editor", selector: { boolean: {} } },
             ],
           },
+          {
+            name: "header",
+            selector: {
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "full", label: t("editor.header_full") },
+                  { value: "compact", label: t("editor.header_compact") },
+                ],
+              },
+            },
+          },
         ],
       },
       {
@@ -97,6 +109,7 @@ export class WeightGoalCardEditor extends LitElement {
     const config = this._config!;
     return {
       show_header: true,
+      header: "full",
       show_hero: true,
       show_badges: true,
       show_chart: true,

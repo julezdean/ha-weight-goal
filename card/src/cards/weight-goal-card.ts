@@ -89,6 +89,7 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
                 .model=${model}
                 .name=${config.name ?? model.context.name}
                 .icon=${config.icon}
+                ?compact=${config.header === "compact"}
               ></wg-header>`}
 
           ${config.show_hero === false
