@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import custom_components.weight_goal.frontend as frontend
@@ -59,11 +61,23 @@ async def test_status_attributes_expose_card_settings(
 
 async def test_frontend_registration_is_idempotent(hass: HomeAssistant) -> None:
     """Two config entries must not register the same static path twice."""
-    await frontend.async_register_frontend(hass)
-    assert hass.data.get(f"{DOMAIN}_frontend_registered") is True
-    # A second call is a no-op rather than a RuntimeError from the http
-    # component about a duplicate route.
-    await frontend.async_register_frontend(hass)
+    # Without http there is no static path to register at all, and the test
+    # would run through the error path instead of the one it is about.
+    assert await async_setup_component(hass, "http", {})
+
+    with patch.object(
+        hass.http,
+        "async_register_static_paths",
+        wraps=hass.http.async_register_static_paths,
+    ) as register:
+        await frontend.async_register_frontend(hass)
+        assert hass.data.get(f"{DOMAIN}_frontend_registered") is True
+        await frontend.async_register_frontend(hass)
+
+    # Counted rather than left to raise: current Home Assistant versions accept
+    # a duplicate static path silently, so only the call count still shows that
+    # the second setup was a no-op.
+    assert register.call_count == 1
 
 
 class _FakeResources:
