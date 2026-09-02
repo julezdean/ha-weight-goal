@@ -1,6 +1,6 @@
 {
   "name": "weight-goal-card",
-  "version": "0.5.0-beta.1",
+  "version": "0.5.0-beta.2",
   "private": true,
   "description": "Lovelace cards for the Road to Weight Goal integration",
   "license": "MIT",
