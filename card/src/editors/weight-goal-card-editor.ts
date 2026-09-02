@@ -50,6 +50,7 @@ export class WeightGoalCardEditor extends LitElement {
             schema: [
               { name: "show_header", selector: { boolean: {} } },
               { name: "show_hero", selector: { boolean: {} } },
+              { name: "show_badges", selector: { boolean: {} } },
               { name: "show_chart", selector: { boolean: {} } },
               { name: "show_progress", selector: { boolean: {} } },
               { name: "show_actions", selector: { boolean: {} } },
@@ -97,6 +98,7 @@ export class WeightGoalCardEditor extends LitElement {
     return {
       show_header: true,
       show_hero: true,
+      show_badges: true,
       show_chart: true,
       show_progress: true,
       show_actions: true,

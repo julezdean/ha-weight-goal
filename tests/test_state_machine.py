@@ -75,6 +75,20 @@ async def test_rate_is_derived_from_the_target(
     assert hass.states.get("number.julien_rate_per_week").state == "-0.5"
 
 
+async def test_a_derived_rate_is_shown_at_the_step_it_accepts(
+    hass: HomeAssistant, frozen
+) -> None:
+    """Four decimals in a box with a step of 0.01 promise an accuracy nobody
+    can type. The option keeps them, so switching the mode derives the same
+    target back instead of moving it by a rounding error."""
+    entry = make_entry(hass, **{CONF_END_DATE: "2026-06-01"})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.options[CONF_RATE_PER_WEEK] == pytest.approx(-0.3763, abs=0.0001)
+    assert hass.states.get("number.julien_rate_per_week").state == "-0.38"
+
+
 async def test_no_goal_when_the_range_is_invalid(hass: HomeAssistant, frozen) -> None:
     """An end date before the start date is refused, not silently clamped."""
     entry = make_entry(hass, **{CONF_END_DATE: "2026-02-01"})

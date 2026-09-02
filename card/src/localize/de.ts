@@ -38,7 +38,7 @@ export const de: Record<TranslationKey, string> = {
   "hero.above_plan": "über Plan",
   "hero.below_plan": "unter Plan",
   "hero.on_plan": "auf Plan",
-  "hero.no_reading": "Noch keine Messung",
+  "badges.no_reading": "Noch keine Messung",
 
   "badge.source.manual": "Von Hand erfasst",
   "badge.source.sensor": "Von der Waage",
@@ -57,6 +57,9 @@ export const de: Record<TranslationKey, string> = {
   "actions.weight_input": "Gewicht in {unit}",
 
   "goal.title": "Ziel",
+  "goal.derived": "berechnet",
+  "goal.derived_hint":
+    "Einer dieser beiden Werte wird aus dem anderen berechnet. Ändere den Modus in den Optionen der Integration, um ihn direkt zu setzen.",
 
   "progress.weight": "Gewicht",
   "progress.time": "Zeit",
@@ -117,6 +120,7 @@ export const de: Record<TranslationKey, string> = {
   "editor.axis": "Achsenbeschriftung",
   "editor.show_header": "Kopfzeile",
   "editor.show_hero": "Aktuelles Gewicht",
+  "editor.show_badges": "Badges",
   "editor.show_chart": "Diagramm",
   "editor.show_progress": "Fortschrittsbalken",
   "editor.show_actions": "Aktionen",

@@ -3,19 +3,16 @@ import { customElement, property } from "lit/decorators.js";
 
 import { STATUS_COLOR } from "../const";
 import { formatNumber } from "../lib/format";
-import { resolveBadges, type ResolvedBadge } from "../lib/badges";
 import { translator } from "../localize";
 import { sharedStyles } from "../shared-styles";
 import type { GoalModel } from "../lib/goal";
-import type { BadgeConfig, HomeAssistant } from "../types";
+import type { HomeAssistant } from "../types";
 
 @customElement("wg-hero")
 export class WgHero extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
 
   @property({ attribute: false }) public model?: GoalModel;
-
-  @property({ attribute: false }) public badges?: BadgeConfig[];
 
   protected override render(): TemplateResult | typeof nothing {
     const model = this.model;
@@ -24,7 +21,6 @@ export class WgHero extends LitElement {
     }
     const t = translator(this.hass);
     const colour = STATUS_COLOR[model.status] ?? STATUS_COLOR.no_goal;
-    const badges = resolveBadges(this.hass, model, this.badges);
 
     return html`
       <div class="hero">
@@ -60,37 +56,7 @@ export class WgHero extends LitElement {
               </span>
             </div>`}
       </div>
-
-      ${badges.length === 0 && model.currentWeight === null
-        ? html`<div class="chips">
-            <span class="chip">
-              <ha-icon icon="mdi:scale-bathroom"></ha-icon>
-              ${t("hero.no_reading")}
-            </span>
-          </div>`
-        : badges.length
-          ? html`<div class="chips">
-              ${badges.map((badge) => this._renderBadge(badge))}
-            </div>`
-          : nothing}
     `;
-  }
-
-  private _renderBadge(badge: ResolvedBadge) {
-    // The chips show a value and an icon, not a label: repeating "Last
-    // measurement" in front of "6 hours ago" costs a line on a phone. The name
-    // is still there for a screen reader and on hover.
-    const aria = badge.label ? `${badge.label}: ${badge.text}` : badge.text;
-    return html`<button
-      class="chip"
-      title=${badge.label}
-      aria-label=${aria}
-      ?disabled=${!badge.entityId}
-      @click=${() => this._more(badge.entityId)}
-    >
-      <ha-icon icon=${badge.icon}></ha-icon>
-      <span>${badge.text}</span>
-    </button>`;
   }
 
   private _more(entityId?: string): void {
@@ -143,22 +109,6 @@ export class WgHero extends LitElement {
       }
       .deviation ha-icon {
         --mdc-icon-size: 17px;
-      }
-      .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 10px;
-      }
-      button.chip {
-        border: none;
-        font: inherit;
-        font-size: 12px;
-        color: inherit;
-        cursor: pointer;
-      }
-      button.chip:disabled {
-        cursor: default;
       }
     `,
   ];

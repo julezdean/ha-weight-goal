@@ -119,7 +119,6 @@ class RatePerWeekNumber(WeightGoalNumber):
 
     _attr_native_unit_of_measurement = f"{UnitOfMass.KILOGRAMS}/w"
     _attr_native_step = 0.01
-    _attr_suggested_display_precision = 2
     _attr_native_min_value = -RATE_LIMIT_PER_WEEK
     _attr_native_max_value = RATE_LIMIT_PER_WEEK
 
@@ -129,8 +128,20 @@ class RatePerWeekNumber(WeightGoalNumber):
 
     @property
     def native_value(self) -> float | None:
-        """Return the configured or derived rate."""
-        return self._manager.rate_per_week
+        """Return the configured or derived rate, at the precision of the step.
+
+        In target mode this value is derived and carries four decimals, which
+        is a precision the goal does not have and that the step of 0.01 cannot
+        express: a box offering them invites an accuracy nobody can enter.
+        Only the display is rounded. The stored option keeps every decimal, so
+        switching the goal mode derives the same target back rather than moving
+        it by a rounding error.
+
+        ``suggested_display_precision`` would be the obvious way to say this,
+        but it is a sensor feature and a number entity ignores it.
+        """
+        rate = self._manager.rate_per_week
+        return None if rate is None else round(rate, 2)
 
     async def async_set_native_value(self, value: float) -> None:
         """Store a new rate, if this is the authoritative input."""

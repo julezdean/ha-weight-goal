@@ -337,8 +337,8 @@ Only for the card:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `show_header`, `show_hero`, `show_chart`, `show_progress`, `show_actions`, `show_goal_editor` | `true` | Individual sections. |
-| `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips under the weight, in the order given. `[]` hides them all. |
+| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_actions`, `show_goal_editor` | `true` | Individual sections. |
+| `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 
 ### Badges
 

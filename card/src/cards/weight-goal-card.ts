@@ -7,6 +7,7 @@ import { WeightGoalBaseCard } from "./base";
 import type { ChartOptions, WeightGoalCardConfig } from "../types";
 
 import "../components/wg-actions";
+import "../components/wg-badges";
 import "../components/wg-chart";
 import "../components/wg-goal-editor";
 import "../components/wg-header";
@@ -92,11 +93,15 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
 
           ${config.show_hero === false
             ? nothing
-            : html`<wg-hero
+            : html`<wg-hero .hass=${this.hass} .model=${model}></wg-hero>`}
+
+          ${config.show_badges === false
+            ? nothing
+            : html`<wg-badges
                 .hass=${this.hass}
                 .model=${model}
                 .badges=${config.badges}
-              ></wg-hero>`}
+              ></wg-badges>`}
 
           ${showChart
             ? html`

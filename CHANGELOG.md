@@ -6,8 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `show_badges` turns the badges on and off on their own. They were part of the
+  current weight before, so hiding the big number also dropped the chips
+  underneath it; the two are separate sections now.
+
 ### Changed
 
+- The derived one of target weight and rate per week is marked as calculated in
+  the card, with a line saying where it comes from. It has always been read
+  only, but nothing said so, which made a field that refuses to be edited look
+  broken rather than deliberate.
 - `range: goal` covers the goal period and nothing else. It used to pull the
   chart back to the earliest reading it had loaded, up to a week before the
   start, so the option disagreed with the name it carries in the editor.
@@ -16,6 +26,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The weekly rate is shown with two decimals rather than four. When it is
+  derived it carried a precision that its own step of 0.01 cannot enter. Only
+  the display is rounded: the stored value keeps every decimal, so switching
+  the goal mode derives the same target back.
+- The card's read only goal fields pointed `aria-describedby` at an element
+  that did not exist, so a screen reader announced nothing where an
+  explanation was promised.
 - The moving average no longer starts on a partial window when `average` is
   longer than a week. The card loaded a fixed seven days of readings from
   before the goal; it now loads a whole average window, so the line is right

@@ -272,6 +272,7 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   axis: "editor.axis",
   show_header: "editor.show_header",
   show_hero: "editor.show_hero",
+  show_badges: "editor.show_badges",
   show_chart: "editor.show_chart",
   show_progress: "editor.show_progress",
   show_actions: "editor.show_actions",

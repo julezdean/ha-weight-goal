@@ -38,7 +38,7 @@ export const en = {
   "hero.above_plan": "above plan",
   "hero.below_plan": "below plan",
   "hero.on_plan": "on plan",
-  "hero.no_reading": "No reading yet",
+  "badges.no_reading": "No reading yet",
 
   "badge.source.manual": "Entered by hand",
   "badge.source.sensor": "From the scale",
@@ -57,6 +57,9 @@ export const en = {
   "actions.weight_input": "Weight in {unit}",
 
   "goal.title": "Goal",
+  "goal.derived": "calculated",
+  "goal.derived_hint":
+    "One of these two is calculated from the other. Change the goal mode in the integration options to set it directly.",
 
   "progress.weight": "Weight",
   "progress.time": "Time",
@@ -114,6 +117,7 @@ export const en = {
   "editor.axis": "Axis labels",
   "editor.show_header": "Header",
   "editor.show_hero": "Current weight",
+  "editor.show_badges": "Badges",
   "editor.show_chart": "Chart",
   "editor.show_progress": "Progress bars",
   "editor.show_actions": "Actions",

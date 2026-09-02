@@ -217,6 +217,7 @@ export type BadgeConfig = BuiltinBadge | CustomBadge;
 export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_header?: boolean;
   show_hero?: boolean;
+  show_badges?: boolean;
   show_chart?: boolean;
   show_progress?: boolean;
   show_actions?: boolean;

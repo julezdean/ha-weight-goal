@@ -13,10 +13,10 @@ import type { HomeAssistant } from "../types";
  *
  * Target weight and rate per week are two views of the same thing; the
  * integration decides which one is authoritative and derives the other. The
- * derived one is rendered read only, using the `goal_mode` attribute the status
- * sensor exposes. On an older integration that attribute is missing, in which
- * case both stay editable and a rejected write is shown as an error rather than
- * guessed at.
+ * derived one is rendered read only and says so, using the `goal_mode`
+ * attribute the status sensor exposes. On an older integration that attribute
+ * is missing, in which case both stay editable and a rejected write is shown as
+ * an error rather than guessed at.
  */
 @customElement("wg-goal-editor")
 export class WgGoalEditor extends LitElement {
@@ -43,21 +43,22 @@ export class WgGoalEditor extends LitElement {
           <span>${localize(this.hass, "goal.title")}</span>
         </summary>
         <div class="grid">
-          ${this._numberRow(entities.start_weight, model.unit, true)}
-          ${this._numberRow(
-            entities.target_weight,
-            model.unit,
-            mode === null || mode === "target",
-          )}
+          ${this._numberRow(entities.start_weight, model.unit, false)}
+          ${this._numberRow(entities.target_weight, model.unit, mode === "rate")}
           ${this._numberRow(
             entities.rate_per_week,
             `${model.unit}/w`,
-            mode === null || mode === "rate",
+            mode === "target",
             0.01,
           )}
           ${this._dateRow(entities.start_date)}
           ${this._dateRow(entities.end_date)}
         </div>
+        ${mode === null
+          ? nothing
+          : html`<p id="derived" class="hint muted">
+              ${localize(this.hass, "goal.derived_hint")}
+            </p>`}
         ${this._error
           ? html`<div class="error" role="alert">${this._error}</div>`
           : nothing}
@@ -65,10 +66,17 @@ export class WgGoalEditor extends LitElement {
     `;
   }
 
+  /**
+   * One field of the goal.
+   *
+   * `derived` and unavailable both disable the input, but only the first one
+   * is worth explaining: a greyed out box with no reason next to it reads as a
+   * bug, which is why the field says so and points at the hint below the grid.
+   */
   private _numberRow(
     entityId: string | undefined,
     unit: string,
-    editable: boolean,
+    derived: boolean,
     step = 0.1,
   ) {
     if (!entityId || !this.hass) {
@@ -78,11 +86,13 @@ export class WgGoalEditor extends LitElement {
     if (!state) {
       return nothing;
     }
-    const disabled = !editable || state.state === "unavailable";
     return html`<label class="field">
-      <span class="muted"
-        >${entityLabel(this.hass, entityId, this.model?.context.name)}</span
-      >
+      <span class="muted">
+        ${entityLabel(this.hass, entityId, this.model?.context.name)}
+        ${derived
+          ? html`<span class="tag">${localize(this.hass, "goal.derived")}</span>`
+          : nothing}
+      </span>
       <span class="input">
         <input
           type="number"
@@ -90,8 +100,8 @@ export class WgGoalEditor extends LitElement {
           min=${attributeOf<number>(this.hass, entityId, "min") ?? 0}
           max=${attributeOf<number>(this.hass, entityId, "max") ?? 1000}
           .value=${state.state === "unknown" ? "" : state.state}
-          ?disabled=${disabled}
-          aria-describedby=${disabled ? "derived" : nothing}
+          ?disabled=${derived || state.state === "unavailable"}
+          aria-describedby=${derived ? "derived" : nothing}
           @change=${(event: Event) =>
             this._setNumber(entityId, (event.target as HTMLInputElement).value)}
         />
@@ -205,6 +215,19 @@ export class WgGoalEditor extends LitElement {
       .unit {
         font-size: 12px;
         flex: 0 0 auto;
+      }
+      .tag {
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: var(--secondary-background-color, #f2f2f2);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .hint {
+        margin: 0 0 8px;
+        font-size: 12px;
+        line-height: 1.4;
       }
       .error {
         padding: 8px 10px;
