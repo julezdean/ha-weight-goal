@@ -286,7 +286,8 @@ header: compact
 show_hero: false
 show_badges: false
 show_progress: false
-show_actions: false
+show_record: false
+show_restart: false
 show_goal_editor: false
 range: 90
 average: 7
@@ -349,8 +350,8 @@ Only for the card:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_actions`, `show_goal_editor` | `true` | Individual sections. |
-| `show_record`, `show_restart` | `true` | The two actions on their own. `show_actions: false` still hides both. |
+| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor` | `true` | Individual sections. |
+| `show_record`, `show_restart` | `true` | The two actions, independent of each other. Both off is no action row at all. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 

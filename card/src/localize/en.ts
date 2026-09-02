@@ -120,7 +120,6 @@ export const en = {
   "editor.show_badges": "Badges",
   "editor.show_chart": "Chart",
   "editor.show_progress": "Progress bars",
-  "editor.show_actions": "Actions",
   "editor.show_record": "Save reading",
   "editor.show_restart": "Restart today",
   "editor.show_goal_editor": "Goal settings",

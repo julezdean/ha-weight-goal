@@ -123,7 +123,6 @@ export const de: Record<TranslationKey, string> = {
   "editor.show_badges": "Badges",
   "editor.show_chart": "Diagramm",
   "editor.show_progress": "Fortschrittsbalken",
-  "editor.show_actions": "Aktionen",
   "editor.show_record": "Messung speichern",
   "editor.show_restart": "Heute neu starten",
   "editor.show_goal_editor": "Zieleinstellungen",

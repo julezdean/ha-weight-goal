@@ -213,6 +213,8 @@ describe("the two actions", () => {
   });
 
   it("renders nothing at all with both off", async () => {
+    // There is no outer switch any more: the two toggles are the whole story,
+    // and both off has to mean no action row rather than an empty one.
     const { hass, model } = build("target");
     const el = await render("wg-actions", {
       hass,

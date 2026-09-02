@@ -223,8 +223,7 @@ export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_badges?: boolean;
   show_chart?: boolean;
   show_progress?: boolean;
-  show_actions?: boolean;
-  /** The two actions on their own. `show_actions: false` still hides both. */
+  /** The two actions, independent of each other. Both off is no action row. */
   show_record?: boolean;
   show_restart?: boolean;
   show_goal_editor?: boolean;

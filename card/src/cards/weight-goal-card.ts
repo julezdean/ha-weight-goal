@@ -61,7 +61,8 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
     let size = 2;
     if (this._config?.show_chart !== false) size += 3;
     if (this._config?.show_progress !== false) size += 1;
-    if (this._config?.show_actions !== false) size += 1;
+    if (this._config?.show_record !== false || this._config?.show_restart !== false)
+      size += 1;
     return size;
   }
 
@@ -77,7 +78,11 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
     }
 
     const showChart = config.show_chart !== false;
-    const showActions = config.show_actions !== false;
+    // Rendered at all only when something can appear in it: an element that
+    // returns nothing is still a flex item, and the column gap around it
+    // would leave a hole where the actions are not.
+    const showActions =
+      config.show_record !== false || config.show_restart !== false;
 
     return html`
       <ha-card>

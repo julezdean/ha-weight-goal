@@ -10,10 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - `header: compact` replaces the icon, the end date and the status with one line
   of name and current weight, for a card that is mostly chart.
-- `show_record` and `show_restart` switch the two actions separately. Saving a
-  reading and restarting the goal today have little to do with each other: a
-  scale user never types a weight, and a goal nobody restarts does not need the
-  button in the way. `show_actions: false` still hides both.
+- `show_record` and `show_restart` switch the two actions, and nothing else
+  does. Saving a reading and restarting the goal today have little to do with
+  each other: a scale user never types a weight, and a goal nobody restarts
+  does not need the button in the way.
 - `show_badges` turns the badges on and off on their own. They were part of the
   current weight before, so hiding the big number also dropped the chips
   underneath it; the two are separate sections now.
@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Removed
 
+- `show_actions`, which switched both actions at once. With `show_record` and
+  `show_restart` doing that individually, a third option on top only raised the
+  question of which one wins. A dashboard setting `show_actions: false` has to
+  set both of the new ones instead, or the actions come back.
 - The separate chart card, `custom:weight-goal-chart-card`. The card does the
   same thing with the other sections switched off, and `header: compact` covers
   the one thing that was only the chart card's: a heading small enough to sit

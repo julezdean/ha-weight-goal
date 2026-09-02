@@ -276,7 +276,6 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   show_badges: "editor.show_badges",
   show_chart: "editor.show_chart",
   show_progress: "editor.show_progress",
-  show_actions: "editor.show_actions",
   show_record: "editor.show_record",
   show_restart: "editor.show_restart",
   show_goal_editor: "editor.show_goal_editor",
