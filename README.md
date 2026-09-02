@@ -6,6 +6,8 @@ A Home Assistant integration that tracks your weight against a planned
 trajectory: from a start weight to a target weight over a date range, for
 losing, maintaining or gaining.
 
+![The card: name, end date and status, the current weight and how far it is from plan, a row of badges, the chart with the plan line and the tolerance band, and the weight and time progress bars.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
+
 ## What this integration does not do
 
 It does not weigh you, it does not notify you, and it does not speak. It keeps
