@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-09-04
+
+### Changed
+
+- New brand icon: the weight trend curve with its confidence band, drawn as a
+  road with a dashed centre line, replaces the badge with the scale. Dark
+  variants ship alongside it, so the icon keeps its contrast on a dark theme.
+  The SVG source and the script that renders the PNGs live under `assets/`.
+
 ## [0.5.0] - 2026-09-02
 
 ### Added
