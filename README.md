@@ -1,7 +1,5 @@
 # Road to Weight Goal
 
-<img src="https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/custom_components/weight_goal/brand/icon.png" width="96" align="right" alt="">
-
 A Home Assistant integration that tracks your weight against a planned
 trajectory: from a start weight to a target weight over a date range, for
 losing, maintaining or gaining.
