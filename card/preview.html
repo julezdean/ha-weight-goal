@@ -1,0 +1,2039 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>weight-goal-card render harness</title>
+
+    <!--
+      A render harness for the Lovelace card, outside Home Assistant.
+
+      It loads the BUILT BUNDLE that ships with the integration
+      (custom_components/weight_goal/www/weight-goal-card.js), so what is on
+      screen here is what a user's browser gets. Nothing in this file is part
+      of the shipped card: it is not imported by the bundle, not referenced by
+      the integration, and it adds no dependency. Serve it over HTTP from the
+      repository root -- ES modules do not load over file://:
+
+          npm run preview     # then open the URL it prints
+
+      Everything faked is marked with a "FAKE" comment. There are exactly four
+      fakes, and they are listed in the README too:
+
+        1. ha-card and ha-icon      -- two host components the card renders
+        2. the `hass` object        -- states, registries, locale
+        3. the service layer        -- callService / connection, which WRITE
+                                       to the fake states and re-render
+        4. formatEntityState        -- the one hass formatting helper the card
+                                       calls
+
+      The card editor is deliberately NOT covered: it renders `ha-form` with
+      Home Assistant's selectors, and faking that would be a bigger fake than
+      the thing under test.
+
+      Query parameters:
+        ?theme=light|dark     which theme variables to define    (default light)
+        ?lang=en|de           hass.language / locale             (default en)
+        ?gallery=<px>         hide the prose and the narrow-column lane, and
+                              lay every fixture out at exactly <px> wide, so
+                              one URL always produces the same picture
+        ?only=<id>,<id>       only these cases, by the id printed above each
+                              card. The whole gallery is taller than Chrome
+                              will render into one bitmap, so a screenshot of
+                              a few cases names them here.
+    -->
+
+    <style>
+      /*
+        FAKE (3 of 4 is below in script): the Home Assistant theme.
+        The card only ever reads theme variables, never hard-coded colours, so
+        defining the same variable names here is enough. These values are
+        Home Assistant's own defaults, close enough that a contrast problem
+        here is a contrast problem there.
+      */
+      :root,
+      [data-theme="light"] {
+        --primary-color: #03a9f4;
+        --accent-color: #ff9800;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --disabled-text-color: #bdbdbd;
+        --text-primary-color: #ffffff;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --card-background-color: #ffffff;
+        --primary-background-color: #fafafa;
+        --secondary-background-color: #e5e5e5;
+        --success-color: #43a047;
+        --warning-color: #ffa726;
+        --error-color: #db4437;
+        --info-color: #039be5;
+        --ha-card-border-radius: 12px;
+        --ha-card-box-shadow: none;
+      }
+
+      [data-theme="dark"] {
+        --primary-color: #03a9f4;
+        --accent-color: #ff9800;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --disabled-text-color: #6f6f6f;
+        --text-primary-color: #ffffff;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        --card-background-color: #1c1c1c;
+        --primary-background-color: #111111;
+        --secondary-background-color: #202020;
+        --success-color: #43a047;
+        --warning-color: #ffa726;
+        --error-color: #db4437;
+        --info-color: #039be5;
+        --ha-card-border-radius: 12px;
+        --ha-card-box-shadow: none;
+      }
+
+      /* --- the harness page itself, not the card ------------------------ */
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        /* Lane width for one card. `?gallery=<px>` overwrites it. */
+        --lane: 360px;
+      }
+
+      #prose {
+        max-width: 760px;
+        margin: 0 0 28px;
+      }
+
+      #prose h1 {
+        margin: 0 0 4px;
+        font-size: 20px;
+        font-weight: 500;
+      }
+
+      #prose p {
+        margin: 6px 0;
+        color: var(--secondary-text-color);
+      }
+
+      #prose code {
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--secondary-background-color);
+        color: var(--primary-text-color);
+        font-size: 12px;
+      }
+
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .links a {
+        padding: 4px 10px;
+        border: 1px solid var(--divider-color);
+        border-radius: 999px;
+        color: var(--primary-text-color);
+        font-size: 12px;
+        text-decoration: none;
+      }
+
+      .links a[aria-current="true"] {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+      }
+
+      h2.lane-title {
+        margin: 32px 0 12px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--secondary-text-color);
+      }
+
+      .lane {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 20px;
+      }
+
+      /* One card and its label. */
+      .case {
+        width: var(--lane);
+        flex: 0 0 var(--lane);
+      }
+
+      .case > .label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--secondary-text-color);
+        font-size: 11px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
+      .case > .label b {
+        color: var(--primary-text-color);
+        font-weight: 600;
+      }
+
+      /* Lovelace shows a config error card when setConfig throws; so do we. */
+      .config-error {
+        padding: 14px 16px;
+        border: 1px solid var(--error-color);
+        border-radius: var(--ha-card-border-radius);
+        background: var(--card-background-color);
+        color: var(--error-color);
+        font-size: 13px;
+      }
+
+      /* `?gallery=<px>`: one fixed-width column, nothing else. */
+      body.gallery #prose,
+      body.gallery .narrow-lane,
+      body.gallery .narrow-lane-title {
+        display: none;
+      }
+
+      body.gallery .lane {
+        display: block;
+      }
+
+      body.gallery .case {
+        margin-bottom: 20px;
+      }
+
+      body.gallery h2.lane-title {
+        margin-top: 0;
+      }
+
+      /*
+        The more-info dialog belongs to Home Assistant, so the harness only
+        reports that the card asked for one. Fixed position, out of the way of
+        every screenshot.
+      */
+      #toast {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      #toast div {
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: var(--primary-text-color);
+        color: var(--card-background-color);
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header id="prose">
+      <h1>weight-goal-card render harness</h1>
+      <p>
+        The built bundle from
+        <code>custom_components/weight_goal/www/weight-goal-card.js</code>,
+        rendered against a fake Home Assistant. Buttons, the weight field and
+        the goal editor really write: they change the fake state and every card
+        showing that goal redraws, the same way the real instance behaves.
+      </p>
+      <p>
+        Faked: <code>ha-card</code> and <code>ha-icon</code>, the
+        <code>hass</code> object, and the service layer. Icons are placeholder
+        glyphs at the exact size a real icon occupies &mdash; the name is on
+        <code>data-icon</code>. The card editor is not covered, it needs
+        <code>ha-form</code>.
+      </p>
+      <div class="links" id="links"></div>
+    </header>
+
+    <main id="app"></main>
+    <div id="toast" aria-live="polite"></div>
+
+    <script type="module">
+      // =====================================================================
+      // 0. The thing under test
+      //
+      // The bundle that ships inside the integration, not the TypeScript
+      // sources and not card/dist. This is the file a user's browser loads.
+      // =====================================================================
+      import "../custom_components/weight_goal/www/weight-goal-card.js";
+
+      const params = new URLSearchParams(location.search);
+      const THEME = params.get("theme") === "dark" ? "dark" : "light";
+      const LANG = params.get("lang") === "de" ? "de" : "en";
+      const GALLERY = Number(params.get("gallery")) || 0;
+      // `?only=a,b` narrows the page to the named cases. A full gallery is
+      // taller than Chrome will put in one bitmap (~16k device pixels), so
+      // this is what makes "one URL, one picture" hold for a screenshot of a
+      // handful of cases rather than of everything.
+      const ONLY = (params.get("only") || "")
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const TZ = "Europe/Berlin";
+      const DAY = 86_400_000;
+
+      document.documentElement.dataset.theme = THEME;
+      if (GALLERY > 0) {
+        document.body.classList.add("gallery");
+        document.body.style.setProperty("--lane", `${GALLERY}px`);
+      }
+
+      // =====================================================================
+      // FAKE 1 of 4: the two host components the card renders.
+      //
+      // `ha-card` and `ha-icon` come from the Home Assistant frontend. Both
+      // are reproduced at the fidelity that matters for looking at layout:
+      // the same box, the same theme variables, the same icon size. The icon
+      // artwork is a placeholder glyph -- the card never depends on which
+      // shape an icon has, only on its size, colour and presence, and the
+      // name it was asked for is on `data-icon` so a DOM query can assert it.
+      // =====================================================================
+
+      class FakeHaCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          const root = this.attachShadow({ mode: "open" });
+          root.innerHTML = `
+            <style>
+              :host {
+                display: block;
+                position: relative;
+                background: var(--ha-card-background, var(--card-background-color, #fff));
+                border-radius: var(--ha-card-border-radius, 12px);
+                border: var(--ha-card-border-width, 1px) solid
+                  var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+                box-shadow: var(--ha-card-box-shadow, none);
+                color: var(--primary-text-color, #212121);
+              }
+            </style>
+            <slot></slot>`;
+        }
+      }
+      customElements.define("ha-card", FakeHaCard);
+
+      /**
+       * A distinct placeholder per icon name.
+       *
+       * Not artwork: the point is only that two different icons look
+       * different. Below 300px the card hides the status text and below 320px
+       * the button labels, which leaves the icon as the only thing telling
+       * "Behind" from "Reached" and "Save reading" from "Restart today". One
+       * placeholder for all of them would hide exactly the confusion this
+       * page exists to reveal, so the name picks the shape.
+       */
+      const GLYPHS = [
+        '<circle cx="12" cy="12" r="8.4" fill="currentColor"/>',
+        '<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="currentColor"/>',
+        '<path d="M12 3.2 21 20.4H3z" fill="currentColor"/>',
+        '<path d="M12 20.8 3 3.6h18z" fill="currentColor"/>',
+        '<path d="M12 2.8 21.2 12 12 21.2 2.8 12z" fill="currentColor"/>',
+        '<circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="3.4"/>',
+        '<path d="M4.4 8.4h15.2v3.2H4.4zm0 6h15.2v3.2H4.4z" fill="currentColor"/>',
+        '<path d="m5 4.6 9 7.4-9 7.4z" fill="currentColor"/><rect x="16.4" y="4.6" width="3" height="14.8" fill="currentColor"/>',
+        '<path d="M10.4 3.2h3.2v7.2h7.2v3.2h-7.2v7.2h-3.2v-7.2H3.2v-3.2h7.2z" fill="currentColor"/>',
+        '<path d="M3.4 12 12 3.4l8.6 8.6-3 3L12 9.4l-5.6 5.6z" fill="currentColor"/>',
+        '<rect x="3.4" y="3.4" width="7.2" height="7.2" fill="currentColor"/><rect x="13.4" y="13.4" width="7.2" height="7.2" fill="currentColor"/>',
+        '<path d="M12 2.6 14.9 9l7 .7-5.3 4.7 1.6 6.9L12 17.6 5.8 21.3l1.6-6.9L2.1 9.7l7-.7z" fill="currentColor"/>',
+        '<path d="M7.2 3.4h9.6L21.6 12l-4.8 8.6H7.2L2.4 12z" fill="currentColor"/>',
+        '<path d="M12 3.6a8.4 8.4 0 0 1 0 16.8z" fill="currentColor"/><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="2"/>',
+        '<path d="M3.6 9.6h9V4.8l7.8 7.2-7.8 7.2v-4.8h-9z" fill="currentColor"/>',
+        '<circle cx="5.6" cy="12" r="2.8" fill="currentColor"/><circle cx="12" cy="12" r="2.8" fill="currentColor"/><circle cx="18.4" cy="12" r="2.8" fill="currentColor"/>',
+        '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="2" fill="none" stroke="currentColor" stroke-width="2.6"/>',
+        '<path d="M12 3.4 20.6 20.6H3.4z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>',
+      ];
+
+      /**
+       * One rendering per icon name, and never the same one twice.
+       *
+       * The hash only picks where to start looking; if that slot is taken the
+       * next free one is used. Chance is not good enough here: with 27 icon
+       * names and 144 renderings a collision is likely rather than rare, and
+       * the two names that collided on the first attempt were the hero's
+       * arrow and the "ahead" status icon, which appear in the same card.
+       *
+       * 18 shapes x 4 corner positions x filled/hollow = 144 slots. Cached per
+       * name, so a re-render never changes an icon that is already on screen.
+       */
+      const assignedGlyphs = new Map();
+      const usedSlots = new Set();
+      const SLOTS = GLYPHS.length * 8;
+
+      function buildGlyph(slot) {
+        const shape = GLYPHS[slot % GLYPHS.length];
+        const variant = Math.floor(slot / GLYPHS.length);
+        const [cx, cy] = [
+          [4.2, 4.2],
+          [19.8, 4.2],
+          [19.8, 19.8],
+          [4.2, 19.8],
+        ][variant % 4];
+        const mark =
+          variant < 4
+            ? `<circle cx="${cx}" cy="${cy}" r="2.7" fill="currentColor"/>`
+            : `<circle cx="${cx}" cy="${cy}" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+        return `<g>${shape}${mark}</g>`;
+      }
+
+      function glyphFor(name) {
+        const cached = assignedGlyphs.get(name);
+        if (cached) return cached;
+
+        let hash = 0;
+        for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+        // Every step stays unsigned: `^` yields a signed int32, and one
+        // negative value turns the slot into a negative index, which is a
+        // silent `undefined` and an icon that renders as nothing.
+        hash = (hash ^ (hash >>> 16)) >>> 0;
+        hash = Math.imul(hash, 0x7feb352d) >>> 0;
+        hash = (hash ^ (hash >>> 15)) >>> 0;
+        hash = Math.imul(hash, 0x846ca68b) >>> 0;
+        hash = (hash ^ (hash >>> 16)) >>> 0;
+
+        let slot = hash % SLOTS;
+        for (let probe = 0; probe < SLOTS && usedSlots.has(slot); probe += 1) {
+          slot = (slot + 1) % SLOTS;
+        }
+        usedSlots.add(slot);
+        const markup = buildGlyph(slot);
+        assignedGlyphs.set(name, markup);
+        return markup;
+      }
+
+      class FakeHaIcon extends HTMLElement {
+        static observedAttributes = ["icon"];
+
+        connectedCallback() {
+          this.#render();
+        }
+
+        attributeChangedCallback() {
+          this.#render();
+        }
+
+        #render() {
+          if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+          const name = this.getAttribute("icon") || "";
+          // Same box and same fill source as the real one, so measured size
+          // and colour are the real ones.
+          this.shadowRoot.innerHTML = `
+            <style>
+              :host {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                vertical-align: middle;
+                flex-shrink: 0;
+                width: var(--mdc-icon-size, 24px);
+                height: var(--mdc-icon-size, 24px);
+                color: var(--icon-primary-color, currentcolor);
+              }
+              svg { width: 100%; height: 100%; display: block; }
+            </style>
+            <svg viewBox="0 0 24 24" aria-hidden="true">${glyphFor(name)}</svg>`;
+          this.dataset.icon = name;
+          this.title = name;
+        }
+      }
+      customElements.define("ha-icon", FakeHaIcon);
+
+      // =====================================================================
+      // FAKE 2 of 4: the `hass` object.
+      //
+      // A single fake instance holding every fixture goal, exactly as a real
+      // instance holds several weight_goal devices at once: one state machine,
+      // one entity registry, one device registry. Entity discovery in the card
+      // therefore runs for real, through the registry, rather than being
+      // handed a prepared answer.
+      // =====================================================================
+
+      const ENTITY_NAMES = {
+        en: {
+          start_weight: "Start weight",
+          target_weight: "Target weight",
+          rate_per_week: "Change per week",
+          manual_weight: "Weight to record",
+          start_date: "Start date",
+          end_date: "End date",
+          start_today: "Start today",
+          record_weight: "Confirm weight",
+          confirm_start_today: "Confirm start today",
+          weight: "Weight",
+          target_weight_today: "Planned weight",
+          deviation: "Deviation",
+          trend: "Trend",
+          remaining: "Remaining",
+          projected_date: "Projected date",
+          last_measurement: "Last measurement",
+          status: "Status",
+          weight_progress: "Weight progress",
+          time_progress: "Time progress",
+        },
+        de: {
+          start_weight: "Startgewicht",
+          target_weight: "Zielgewicht",
+          rate_per_week: "Änderung pro Woche",
+          manual_weight: "Gewicht zum Erfassen",
+          start_date: "Startdatum",
+          end_date: "Zieldatum",
+          start_today: "Heute als Start",
+          record_weight: "Gewicht bestätigen",
+          confirm_start_today: "Heute als Start bestätigen",
+          weight: "Gewicht",
+          target_weight_today: "Sollgewicht",
+          deviation: "Abweichung",
+          trend: "Trend",
+          remaining: "Verbleibend",
+          projected_date: "Voraussichtliches Datum",
+          last_measurement: "Letzte Messung",
+          status: "Status",
+          weight_progress: "Fortschritt Gewicht",
+          time_progress: "Fortschritt Zeit",
+        },
+      };
+
+      const STATUS_NAMES = {
+        en: {
+          no_goal: "No goal",
+          ahead: "Ahead",
+          on_track: "On track",
+          behind: "Behind",
+          reached: "Reached",
+          ended: "Ended",
+        },
+        de: {
+          no_goal: "Kein Ziel",
+          ahead: "Voraus",
+          on_track: "Im Plan",
+          behind: "Zurück",
+          reached: "Erreicht",
+          ended: "Beendet",
+        },
+      };
+
+      // Units and display precision, copied from sensor.py / number.py so the
+      // rendered numbers carry the same decimals as the real ones.
+      const ENTITY_META = {
+        start_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
+        target_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
+        // number.py sets "<mass>/w", not the plain mass unit.
+        rate_per_week: { domain: "number", unit: "kg/w", precision: 2, min: -3, max: 3, step: 0.01 },
+        manual_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
+        start_date: { domain: "date" },
+        end_date: { domain: "date" },
+        start_today: { domain: "button" },
+        confirm_start_today: { domain: "button" },
+        record_weight: { domain: "button" },
+        weight: { domain: "sensor", unit: "kg", precision: 1 },
+        target_weight_today: { domain: "sensor", unit: "kg", precision: 2 },
+        deviation: { domain: "sensor", unit: "kg", precision: 2 },
+        trend: { domain: "sensor", unit: "kg", precision: 2 },
+        weight_progress: { domain: "sensor", unit: "%", precision: 0 },
+        time_progress: { domain: "sensor", unit: "%", precision: 0 },
+        remaining: { domain: "sensor", unit: "kg", precision: 2 },
+        projected_date: { domain: "sensor", deviceClass: "timestamp" },
+        status: { domain: "sensor", deviceClass: "enum" },
+        last_measurement: { domain: "sensor", deviceClass: "timestamp" },
+      };
+
+      const store = {
+        states: {},
+        entities: {},
+        devices: {},
+        goals: new Map(),
+      };
+
+      /** Every mounted card, so a write can push a fresh `hass` to all of them. */
+      const mounted = [];
+
+      const nowIso = () => new Date().toISOString();
+
+      function entityId(slug, key) {
+        return `${ENTITY_META[key].domain}.${slug}_${key}`;
+      }
+
+      function setState(id, value, attributes) {
+        const previous = store.states[id];
+        if (!previous) return;
+        const changed = String(previous.state) !== String(value);
+        store.states[id] = {
+          ...previous,
+          state: String(value),
+          attributes: { ...previous.attributes, ...(attributes || {}) },
+          last_changed: changed ? nowIso() : previous.last_changed,
+          // Always bumped: this is what the card's signature check watches, and
+          // an attribute-only change has to reach it too.
+          last_updated: nowIso(),
+        };
+      }
+
+      function buildHass() {
+        return {
+          states: store.states,
+          entities: store.entities,
+          devices: store.devices,
+          connection: { sendMessagePromise },
+          language: LANG,
+          locale: { language: LANG, number_format: "language", time_zone: TZ },
+          themes: { darkMode: THEME === "dark" },
+          config: { time_zone: TZ, unit_system: { mass: "kg" } },
+          callService,
+          formatEntityState,
+          // The card never calls this one; the shape requires it.
+          localize: (key) => key,
+        };
+      }
+
+      /**
+       * Hand every card a new `hass`.
+       *
+       * A new object identity on every push is what Home Assistant does too,
+       * which is exactly why the card compares entity states rather than
+       * object identity. Pushing the same way here means that comparison is
+       * under test rather than bypassed.
+       */
+      function publish() {
+        const hass = buildHass();
+        for (const card of mounted) card.hass = hass;
+      }
+
+      // =====================================================================
+      // FAKE 3 of 4: `formatEntityState`.
+      //
+      // Home Assistant formats a state with its unit, its display precision
+      // and, for an enum, its translation. The card leans on that for every
+      // badge, so a stub returning the raw state would hide both the decimals
+      // and the translated status.
+      // =====================================================================
+
+      function formatEntityState(state) {
+        if (!state) return "";
+        const attributes = state.attributes || {};
+        if (state.state === "unavailable")
+          return LANG === "de" ? "Nicht verfügbar" : "Unavailable";
+        if (state.state === "unknown")
+          return LANG === "de" ? "Unbekannt" : "Unknown";
+
+        if (attributes.device_class === "enum") {
+          return STATUS_NAMES[LANG][state.state] ?? state.state;
+        }
+        // A `date` entity has no device class and no unit, and its state is
+        // not a number, so without this branch it fell through to the raw
+        // ISO string -- which is both wrong and considerably shorter than the
+        // localised date Home Assistant prints, and the header sits in a row
+        // that runs out of width first.
+        if (state.entity_id?.startsWith("date.")) {
+          const parsed = Date.parse(`${state.state}T00:00:00`);
+          if (!Number.isFinite(parsed)) return state.state;
+          return new Intl.DateTimeFormat(LANG, {
+            dateStyle: "long",
+            timeZone: TZ,
+          }).format(new Date(parsed));
+        }
+        if (attributes.device_class === "timestamp") {
+          const parsed = Date.parse(state.state);
+          if (!Number.isFinite(parsed)) return state.state;
+          return new Intl.DateTimeFormat(LANG, {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: TZ,
+          }).format(new Date(parsed));
+        }
+        const unit = attributes.unit_of_measurement;
+        // Home Assistant does not put a space before "%" in English, but does
+        // in German and a handful of other languages. Getting this wrong here
+        // makes the card look inconsistent with its own progress bars, which
+        // is a difference worth being able to trust.
+        const gap = unit === "%" && LANG !== "de" ? "" : " ";
+        const value = Number(state.state);
+        if (Number.isFinite(value) && state.state !== "") {
+          const digits = attributes.display_precision ?? 1;
+          const text = new Intl.NumberFormat(LANG, {
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits,
+          }).format(value);
+          return unit ? `${text}${gap}${unit}` : text;
+        }
+        return unit ? `${state.state}${gap}${unit}` : state.state;
+      }
+
+      // =====================================================================
+      // The goal state machine.
+      //
+      // Not a fake in the sense the others are: this is a second, independent
+      // implementation of what manager.py computes (planned weight, deviation,
+      // progress, trend, projection, status with its hysteresis). It has to
+      // exist for a write to have a visible consequence, and writing it from
+      // helpers.py rather than from the card's own lib/plan.ts is deliberate:
+      // when the plan line the card draws disagrees with the planned-weight
+      // sensor the harness computed, that disagreement is worth seeing.
+      // =====================================================================
+
+      const MAINTAIN_EPSILON = 0.01;
+      const HYSTERESIS_FACTOR = 0.5;
+      const PROJECTION_WINDOW_DAYS = 14;
+      const MAX_PROJECTION_DAYS = 3650;
+
+      /** Offset of TZ from UTC at an instant, in ms. */
+      function zoneOffset(instant) {
+        const parts = {};
+        for (const part of new Intl.DateTimeFormat("en-US", {
+          timeZone: TZ,
+          hourCycle: "h23",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).formatToParts(new Date(instant))) {
+          if (part.type !== "literal") parts[part.type] = Number(part.value);
+        }
+        return (
+          Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) -
+          Math.floor(instant / 1000) * 1000
+        );
+      }
+
+      /** Wall clock midnight of an ISO date in TZ, as epoch ms. */
+      function zonedMidnight(iso) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+        if (!match) return null;
+        const utc = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        let guess = utc - zoneOffset(utc);
+        return utc - zoneOffset(guess);
+      }
+
+      function addDays(iso, days) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+        if (!match) return iso;
+        return new Date(
+          Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) + days * DAY,
+        )
+          .toISOString()
+          .slice(0, 10);
+      }
+
+      /** Today as an ISO date in TZ. */
+      function todayIso() {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
+      }
+
+      function numberState(id) {
+        const state = store.states[id];
+        if (!state || state.state === "unknown" || state.state === "unavailable") return null;
+        const value = Number(state.state);
+        return Number.isFinite(value) ? value : null;
+      }
+
+      function textState(id) {
+        const state = store.states[id];
+        if (!state || state.state === "unknown" || state.state === "unavailable") return null;
+        return state.state;
+      }
+
+      function directionOf(startWeight, targetWeight) {
+        const delta = targetWeight - startWeight;
+        if (delta < -MAINTAIN_EPSILON) return "lose";
+        if (delta > MAINTAIN_EPSILON) return "gain";
+        return "maintain";
+      }
+
+      const directionSign = (d) => (d === "gain" ? 1 : d === "lose" ? -1 : 0);
+
+      /** Write a derived sensor, unless the fixture pinned or removed it. */
+      function derive(goal, key, value, attributes) {
+        if (goal.absent.has(key) || goal.pinned.has(key)) return;
+        setState(entityId(goal.slug, key), value === null ? "unknown" : value, attributes);
+      }
+
+      function recompute(goal) {
+        const id = (key) => entityId(goal.slug, key);
+
+        const startWeight = numberState(id("start_weight"));
+        const startDate = textState(id("start_date"));
+        const endDate = textState(id("end_date"));
+
+        // Target weight and rate per week are two views of one thing, and the
+        // integration derives whichever one is not authoritative.
+        const days =
+          startDate && endDate
+            ? Math.round((zonedMidnight(endDate) - zonedMidnight(startDate)) / DAY) + 1
+            : null;
+        const weeks = days && days >= 1 ? days / 7 : null;
+
+        let targetWeight = numberState(id("target_weight"));
+        let rate = numberState(id("rate_per_week"));
+        if (goal.goalMode === "rate" && startWeight !== null && rate !== null && weeks) {
+          targetWeight = Math.round((startWeight + rate * weeks) * 10) / 10;
+          derive(goal, "target_weight", targetWeight);
+        } else if (goal.goalMode === "target" && startWeight !== null && targetWeight !== null && weeks) {
+          rate = Math.round(((targetWeight - startWeight) / weeks) * 100) / 100;
+          derive(goal, "rate_per_week", rate);
+        }
+
+        const begin = startDate ? zonedMidnight(startDate) : null;
+        const finish = endDate ? zonedMidnight(addDays(endDate, 1)) : null;
+        const hasGoal =
+          startWeight !== null &&
+          targetWeight !== null &&
+          begin !== null &&
+          finish !== null &&
+          finish - begin >= DAY;
+
+        const now = Date.now();
+        const series = goal.measurements;
+        const latest = series.length ? series[series.length - 1] : null;
+        const current = goal.pinnedWeight ?? (latest ? latest.v : null);
+
+        const direction = hasGoal ? directionOf(startWeight, targetWeight) : null;
+        const sign = direction ? directionSign(direction) : 0;
+
+        let planned = null;
+        if (hasGoal) {
+          const span = finish - begin;
+          const fraction = Math.min(1, Math.max(0, (now - begin) / span));
+          planned = startWeight + (targetWeight - startWeight) * fraction;
+        }
+
+        const deviation = planned !== null && current !== null ? current - planned : null;
+
+        let remaining = null;
+        if (hasGoal && current !== null) {
+          remaining =
+            sign === 0
+              ? Math.abs(current - targetWeight)
+              : Math.max(0, (targetWeight - current) * sign);
+        }
+
+        let weightProgress = null;
+        if (hasGoal && current !== null) {
+          const span = targetWeight - startWeight;
+          if (Math.abs(span) >= 1e-9) {
+            weightProgress = Math.min(100, Math.max(0, ((current - startWeight) / span) * 100));
+          }
+        }
+
+        let timeProgress = null;
+        if (hasGoal) {
+          timeProgress = Math.min(100, Math.max(0, ((now - begin) / (finish - begin)) * 100));
+        }
+
+        // Trend: change across the window. The entity is unavailable, not
+        // unknown, when the window is switched off.
+        if (!goal.absent.has("trend") && !goal.pinned.has("trend")) {
+          if (goal.trendWindow <= 0) {
+            setState(id("trend"), "unavailable");
+          } else {
+            const window = series.filter((m) => m.t >= now - goal.trendWindow * DAY);
+            const trend = window.length >= 2 ? window[window.length - 1].v - window[0].v : null;
+            setState(id("trend"), trend === null ? "unknown" : round(trend, 2));
+          }
+        }
+
+        // Projection: its own fixed window, so switching the trend off does
+        // not take the projection down with it.
+        let projected = null;
+        if (hasGoal && current !== null && sign !== 0 && remaining !== null) {
+          const window = series.filter((m) => m.t >= now - PROJECTION_WINDOW_DAYS * DAY);
+          if (window.length >= 2) {
+            const first = window[0];
+            const last = window[window.length - 1];
+            const seconds = (last.t - first.t) / 1000;
+            const perDay = seconds > 0 ? (last.v - first.v) / (seconds / 86400) : null;
+            if (perDay !== null && perDay * sign > 0) {
+              const daysOut = remaining <= 0 ? 0 : remaining / Math.abs(perDay);
+              if (daysOut <= MAX_PROJECTION_DAYS) {
+                projected = new Date(now + daysOut * DAY).toISOString();
+              }
+            }
+          }
+        }
+
+        // Status, including the sticky band that keeps a goal from flickering
+        // between on_track and behind.
+        const previous = store.states[id("status")]?.state ?? "no_goal";
+        let status;
+        if (!hasGoal) {
+          status = "no_goal";
+        } else if (todayIso() > endDate) {
+          status = "ended";
+        } else if (current === null) {
+          status = previous === "no_goal" || previous === "ended" ? "on_track" : previous;
+        } else if (sign !== 0 && (targetWeight - current) * sign <= 0) {
+          status = "reached";
+        } else if (deviation === null) {
+          status = "on_track";
+        } else {
+          const band =
+            previous === "ahead" || previous === "behind"
+              ? goal.tolerance * HYSTERESIS_FACTOR
+              : goal.tolerance;
+          if (sign === 0) {
+            status = Math.abs(deviation) <= band ? "on_track" : "behind";
+          } else {
+            const ahead = deviation * sign;
+            status = ahead > band ? "ahead" : ahead < -band ? "behind" : "on_track";
+          }
+        }
+
+        derive(goal, "weight", current === null ? null : round(current, 1), {
+          source: latest?.source ?? null,
+        });
+        derive(goal, "last_measurement", latest ? new Date(latest.t).toISOString() : null);
+        derive(goal, "target_weight_today", planned === null ? null : round(planned, 2));
+        derive(goal, "deviation", deviation === null ? null : round(deviation, 2));
+        derive(goal, "remaining", remaining === null ? null : round(remaining, 2));
+        derive(goal, "weight_progress", weightProgress === null ? null : round(weightProgress, 0));
+        derive(goal, "time_progress", timeProgress === null ? null : round(timeProgress, 0));
+        derive(goal, "projected_date", projected);
+        derive(goal, "status", status, {
+          direction: direction,
+          tolerance: goal.tolerance,
+          goal_mode: goal.goalMode,
+          min_weight: 20,
+          max_weight: 300,
+          trend_window_days: goal.trendWindow,
+        });
+
+        // The record button only exists to confirm a staged weight.
+        if (!goal.absent.has("record_weight")) {
+          const pending = store.states[id("manual_weight")]?.attributes?.pending === true;
+          setState(id("record_weight"), pending ? "unknown" : "unavailable");
+        }
+      }
+
+      const round = (value, digits) => Number(value.toFixed(digits));
+
+      // =====================================================================
+      // FAKE 4 of 4: the service layer.
+      //
+      // This is the fake that has to answer rather than swallow. Every call
+      // the card can make writes to the fake states, recomputes the goal and
+      // pushes a new `hass` to every mounted card -- so a click travels the
+      // whole way from the event handler through the state change and back
+      // into a re-render, which is the half of the code a logging stub never
+      // reaches.
+      // =====================================================================
+
+      /** Services are not instant in a real instance, and the card has busy
+       * states that only show up when they are not. */
+      const latency = () => new Promise((resolve) => setTimeout(resolve, 140));
+
+      function goalOfEntity(id) {
+        for (const goal of store.goals.values()) {
+          if (goal.owned.has(id)) return goal;
+        }
+        return null;
+      }
+
+      /** Home Assistant rejects with an Error carrying a translated message. */
+      function serviceError(text) {
+        return Object.assign(new Error(text), { code: "unknown_error" });
+      }
+
+      async function callService(domain, service, data = {}, target = {}, _notify, returnResponse) {
+        await latency();
+        const id = target?.entity_id;
+        const goal = goalOfEntity(id);
+
+        if (domain === "weight_goal" && service === "get_measurements") {
+          if (!goal) throw serviceError(`Entity ${id} not found`);
+          if (goal.failReads) {
+            throw serviceError("Service weight_goal.get_measurements is not available");
+          }
+          const cutoff = data.days ? Date.now() - data.days * DAY : 0;
+          const entries = {};
+          entries[id] = {
+            name: goal.name,
+            measurements: goal.measurements
+              .filter((m) => m.t >= cutoff)
+              .map((m) => ({
+                timestamp: new Date(m.t).toISOString(),
+                weight: m.v,
+                source: m.source,
+              })),
+          };
+          return returnResponse ? { response: { entries } } : {};
+        }
+
+        if (!goal) throw serviceError(`Entity ${id} not found`);
+        if (goal.failWrites) {
+          throw serviceError(
+            LANG === "de"
+              ? "Schreiben fehlgeschlagen: Gerät antwortet nicht"
+              : "Failed to perform the action: the device did not respond",
+          );
+        }
+
+        if (domain === "weight_goal" && service === "record_weight") {
+          const weight = Number(data.weight);
+          if (!Number.isFinite(weight)) throw serviceError("weight is required");
+          if (weight < 20 || weight > 300) {
+            throw serviceError(`${weight} kg is outside the plausible range 20-300 kg`);
+          }
+          record(goal, weight, "manual");
+        } else if (domain === "number" && service === "set_value") {
+          setState(id, round(Number(data.value), 2));
+          if (id.endsWith("_manual_weight")) {
+            setState(id, round(Number(data.value), 2), { pending: true });
+          }
+          recompute(goal);
+        } else if (domain === "date" && service === "set_value") {
+          setState(id, String(data.date));
+          recompute(goal);
+        } else if (domain === "button" && service === "press") {
+          press(goal, id);
+        } else {
+          throw serviceError(`Action ${domain}.${service} not found`);
+        }
+
+        publish();
+        return {};
+      }
+
+      function record(goal, weight, source) {
+        goal.measurements.push({ t: Date.now(), v: round(weight, 1), source });
+        goal.measurements.sort((a, b) => a.t - b.t);
+        goal.pinnedWeight = null;
+        if (!goal.absent.has("manual_weight")) {
+          setState(entityId(goal.slug, "manual_weight"), round(weight, 1), { pending: false });
+        }
+        recompute(goal);
+      }
+
+      function press(goal, id) {
+        const key = id.slice(id.lastIndexOf(".") + 1).replace(`${goal.slug}_`, "");
+        if (key === "start_today") {
+          // Staging only. The integration arms the confirmation for thirty
+          // seconds and changes nothing else.
+          setState(entityId(goal.slug, "confirm_start_today"), new Date().toISOString());
+          window.clearTimeout(goal.armTimer);
+          goal.armTimer = window.setTimeout(() => {
+            setState(entityId(goal.slug, "confirm_start_today"), "unavailable");
+            publish();
+          }, 30_000);
+        } else if (key === "confirm_start_today") {
+          const latest = goal.measurements[goal.measurements.length - 1];
+          if (latest) setState(entityId(goal.slug, "start_weight"), latest.v);
+          setState(entityId(goal.slug, "start_date"), todayIso());
+          setState(entityId(goal.slug, "confirm_start_today"), "unavailable");
+          window.clearTimeout(goal.armTimer);
+        } else if (key === "record_weight") {
+          const value = numberState(entityId(goal.slug, "manual_weight"));
+          if (value !== null) record(goal, value, "manual");
+        }
+        recompute(goal);
+      }
+
+      /** The other read path: the recorder history of the weight sensor. */
+      async function sendMessagePromise(message) {
+        await latency();
+        if (message.type !== "history/history_during_period") {
+          throw serviceError(`Unknown message type ${message.type}`);
+        }
+        const id = message.entity_ids?.[0];
+        const goal = goalOfEntity(id);
+        if (!goal) return {};
+        if (goal.failReads) throw serviceError("history component is not loaded");
+        const from = Date.parse(message.start_time);
+        const to = Date.parse(message.end_time);
+        return {
+          [id]: goal.measurements
+            .filter((m) => m.t >= from && m.t <= to)
+            .map((m) => ({ s: String(m.v), lu: m.t / 1000 })),
+        };
+      }
+
+      // =====================================================================
+      // The fixture instance.
+      //
+      // Twelve goals, chosen so that between them they cover every status the
+      // card knows, both goal modes, both measurement sources, a unit that is
+      // not kilograms, all three discovery strategies, the empty states and
+      // the broken ones.
+      // =====================================================================
+
+      /** Deterministic noise, so a reload produces the same picture. */
+      function seeded(seed) {
+        let a = 0;
+        for (const ch of seed) a = (a + ch.charCodeAt(0) * 2654435761) >>> 0;
+        return () => {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      /** Weights walking from `from` towards `to`, one reading every `every` days. */
+      function walk({ seed, days, every = 1, from, to, wobble = 0.35, source = "sensor" }) {
+        const random = seeded(seed);
+        const morning = zonedMidnight(todayIso()) + 7 * 3600_000;
+        const out = [];
+        for (let d = days; d >= 0; d -= every) {
+          const progress = (days - d) / Math.max(1, days);
+          const value = from + (to - from) * progress + (random() - 0.5) * 2 * wobble;
+          out.push({ t: morning - d * DAY, v: round(value, 1), source });
+        }
+        return out.filter((m) => m.t <= Date.now());
+      }
+
+      const ALL_KEYS = Object.keys(ENTITY_META);
+
+      function defineGoal(spec) {
+        const goal = {
+          slug: spec.slug,
+          name: spec.name,
+          deviceId: spec.registry === false ? null : `dev_${spec.slug}`,
+          measurements: spec.measurements ?? [],
+          tolerance: spec.tolerance ?? 0.5,
+          trendWindow: spec.trendWindow ?? 7,
+          // `?? "target"` would swallow an explicit null, which is exactly
+          // the case the legacy fixture is for.
+          goalMode: spec.goalMode === undefined ? "target" : spec.goalMode,
+          unit: spec.unit ?? "kg",
+          absent: new Set(spec.absent ?? []),
+          pinned: new Set(Object.keys(spec.pin ?? {})),
+          pinnedWeight: spec.pinnedWeight ?? null,
+          failWrites: spec.failWrites === true,
+          failReads: spec.failReads === true,
+          owned: new Set(),
+          armTimer: 0,
+        };
+
+        if (goal.deviceId) {
+          store.devices[goal.deviceId] = {
+            id: goal.deviceId,
+            name: spec.name,
+            name_by_user: spec.nameByUser ?? null,
+          };
+        }
+
+        for (const key of ALL_KEYS) {
+          if (goal.absent.has(key)) continue;
+          const meta = ENTITY_META[key];
+          const id = entityId(goal.slug, key);
+          const attributes = {
+            friendly_name: `${spec.name} ${ENTITY_NAMES[LANG][key]}`,
+          };
+          if (meta.unit) {
+            attributes.unit_of_measurement = meta.unit.startsWith("kg")
+              ? meta.unit.replace("kg", goal.unit)
+              : meta.unit;
+          }
+          if (meta.precision !== undefined) attributes.display_precision = meta.precision;
+          if (meta.deviceClass) attributes.device_class = meta.deviceClass;
+          if (meta.min !== undefined) {
+            attributes.min = meta.min;
+            attributes.max = meta.max;
+            attributes.step = meta.step;
+            attributes.mode = "box";
+          }
+          if (meta.deviceClass === "enum") {
+            attributes.options = Object.keys(STATUS_NAMES.en);
+          }
+          store.states[id] = {
+            entity_id: id,
+            state: "unknown",
+            attributes,
+            last_changed: nowIso(),
+            last_updated: nowIso(),
+          };
+          goal.owned.add(id);
+
+          // `registry: false` leaves the entities out of the registry, which
+          // is the case the card's third discovery strategy exists for.
+          if (goal.deviceId) {
+            store.entities[id] = {
+              entity_id: id,
+              platform: "weight_goal",
+              device_id: goal.deviceId,
+              // Strategy 1 is the translation key; a goal can opt out of it to
+              // put the entity-id suffix matching under test instead.
+              ...(spec.translationKeys === false ? {} : { translation_key: key }),
+            };
+          }
+        }
+
+        const set = (key, value) => {
+          if (!goal.absent.has(key)) setState(entityId(goal.slug, key), value);
+        };
+        if (spec.startWeight !== undefined) set("start_weight", spec.startWeight);
+        if (spec.targetWeight !== undefined) set("target_weight", spec.targetWeight);
+        if (spec.ratePerWeek !== undefined) set("rate_per_week", spec.ratePerWeek);
+        if (spec.startDate !== undefined) set("start_date", spec.startDate);
+        if (spec.endDate !== undefined) set("end_date", spec.endDate);
+        set("start_today", "unknown");
+        set("confirm_start_today", "unavailable");
+        set("manual_weight", "unknown");
+        // The integration's state machine starts at no_goal, and the "goal
+        // set but never weighed" branch carries the previous status forward,
+        // so seeding anything else puts an invalid status on the card.
+        set("status", "no_goal");
+
+        for (const [key, value] of Object.entries(spec.pin ?? {})) {
+          if (!goal.absent.has(key)) setState(entityId(goal.slug, key), value);
+        }
+
+        store.goals.set(goal.slug, goal);
+        recompute(goal);
+        return goal;
+      }
+
+      const today = todayIso();
+      const ago = (days) => addDays(today, -days);
+      const ahead = (days) => addDays(today, days);
+
+      // --- the normal cases ----------------------------------------------
+
+      defineGoal({
+        slug: "alex",
+        name: "Alex",
+        startWeight: 88.0,
+        targetWeight: 78.0,
+        startDate: ago(40),
+        endDate: ahead(50),
+        measurements: walk({ seed: "alex", days: 40, from: 88.2, to: 84.8, source: "sensor" }),
+      });
+
+      defineGoal({
+        slug: "robin",
+        name: "Robin",
+        goalMode: "rate",
+        startWeight: 62.0,
+        ratePerWeek: 0.25,
+        startDate: ago(20),
+        endDate: ahead(63),
+        // Weighs herself every third day, by hand.
+        measurements: walk({
+          seed: "robin",
+          days: 20,
+          every: 3,
+          from: 62.1,
+          to: 63.4,
+          source: "manual",
+        }),
+      });
+
+      defineGoal({
+        slug: "sam",
+        name: "Sam",
+        startWeight: 70.0,
+        targetWeight: 70.0,
+        startDate: ago(30),
+        endDate: ahead(60),
+        tolerance: 0.4,
+        measurements: walk({
+          seed: "sam",
+          days: 30,
+          from: 70.1,
+          to: 70.2,
+          wobble: 0.5,
+          source: "service",
+        }),
+      });
+
+      defineGoal({
+        slug: "kim",
+        name: "Kim",
+        startWeight: 80.0,
+        targetWeight: 75.0,
+        startDate: ago(70),
+        endDate: ahead(20),
+        measurements: walk({ seed: "kim", days: 70, every: 2, from: 80.0, to: 74.6 }),
+      });
+
+      defineGoal({
+        slug: "noor",
+        name: "Noor",
+        unit: "lb",
+        startWeight: 190.0,
+        targetWeight: 175.0,
+        startDate: ago(95),
+        endDate: ago(5),
+        measurements: walk({ seed: "noor", days: 95, every: 2, from: 190, to: 178.4 }),
+      });
+
+      defineGoal({
+        slug: "dana",
+        name: "Dana",
+        startWeight: 95.0,
+        targetWeight: 85.0,
+        startDate: ago(200),
+        endDate: ahead(165),
+        trendWindow: 21,
+        // Two years of readings, for `range: all` and for the history source.
+        measurements: walk({ seed: "dana", days: 200, from: 95.4, to: 89.1, source: "import" }),
+      });
+
+      // --- the empty states -----------------------------------------------
+
+      // Nothing set at all: no start, no target, no dates. The goal editor
+      // opens by itself in this state.
+      defineGoal({ slug: "blank", name: "Blank" });
+
+      // An integration older than 0.2: the status sensor has no `goal_mode`
+      // attribute, so the card cannot tell which of target weight and rate is
+      // derived and has to leave both editable.
+      defineGoal({
+        slug: "legacy",
+        name: "Legacy",
+        goalMode: null,
+        startWeight: 86.0,
+        targetWeight: 80.0,
+        ratePerWeek: -0.5,
+        startDate: ago(12),
+        endDate: ahead(72),
+        translationKeys: false,
+        measurements: walk({ seed: "legacy", days: 12, from: 86.1, to: 85.3 }),
+      });
+
+      // A goal that exists but has never been weighed, with the trend window
+      // switched off and manual entry not allowed.
+      defineGoal({
+        slug: "gaps",
+        name: "Gaps",
+        startWeight: 82.0,
+        targetWeight: 76.0,
+        startDate: ago(10),
+        endDate: ahead(80),
+        trendWindow: 0,
+        measurements: [],
+        pin: { manual_weight: "unavailable" },
+      });
+
+      // Most of the goal is missing: the user hid or removed the entities.
+      defineGoal({
+        slug: "stump",
+        name: "Stump",
+        startWeight: 77.0,
+        targetWeight: 72.0,
+        startDate: ago(15),
+        endDate: ahead(45),
+        measurements: walk({ seed: "stump", days: 15, from: 77.1, to: 76.2 }),
+        absent: [
+          "rate_per_week",
+          "manual_weight",
+          "record_weight",
+          "start_today",
+          "confirm_start_today",
+          "trend",
+          "projected_date",
+          "remaining",
+          "weight_progress",
+          "time_progress",
+          "target_weight_today",
+          "deviation",
+        ],
+      });
+
+      // --- the broken ones -------------------------------------------------
+
+      defineGoal({
+        slug: "grumpy",
+        name: "Grumpy",
+        startWeight: 90.0,
+        targetWeight: 84.0,
+        startDate: ago(25),
+        endDate: ahead(65),
+        failWrites: true,
+        measurements: walk({ seed: "grumpy", days: 25, from: 90.2, to: 88.9 }),
+      });
+
+      defineGoal({
+        slug: "offline",
+        name: "Offline",
+        startWeight: 84.0,
+        targetWeight: 79.0,
+        startDate: ago(30),
+        endDate: ahead(60),
+        failReads: true,
+        measurements: walk({ seed: "offline", days: 30, from: 84.1, to: 82.2 }),
+      });
+
+      // No registry entry at all, so only the entity-id prefix is left to go on.
+      defineGoal({
+        slug: "loose",
+        name: "Loose",
+        registry: false,
+        startWeight: 74.0,
+        targetWeight: 70.0,
+        startDate: ago(18),
+        endDate: ahead(52),
+        measurements: walk({ seed: "loose", days: 18, from: 74.2, to: 73.1 }),
+      });
+
+      // An unrelated entity, so a card can be pointed somewhere that is not a
+      // goal at all.
+      store.states["sensor.kitchen_temperature"] = {
+        entity_id: "sensor.kitchen_temperature",
+        state: "21.4",
+        attributes: {
+          friendly_name: "Kitchen temperature",
+          unit_of_measurement: "°C",
+          device_class: "temperature",
+          display_precision: 1,
+        },
+        last_changed: nowIso(),
+        last_updated: nowIso(),
+      };
+      store.states["sensor.alex_body_fat"] = {
+        entity_id: "sensor.alex_body_fat",
+        state: "22.8",
+        attributes: {
+          friendly_name: "Alex Body fat",
+          unit_of_measurement: "%",
+          display_precision: 1,
+        },
+        last_changed: nowIso(),
+        last_updated: nowIso(),
+      };
+
+      // =====================================================================
+      // The cases.
+      //
+      // One entry is one card on the page: a label and the Lovelace config it
+      // is given. Between them they name every option the card reads.
+      // =====================================================================
+
+      const CARD = "custom:weight-goal-card";
+      const cases = [
+        // --- the states -------------------------------------------------
+        {
+          id: "behind",
+          note: "lose · target mode · scale readings · everything on",
+          config: { type: CARD, entity: "sensor.alex_status" },
+        },
+        {
+          id: "ahead-rate",
+          note: "gain · rate mode (target weight is derived) · manual readings",
+          config: { type: CARD, entity: "sensor.robin_status" },
+        },
+        {
+          id: "maintain",
+          note: "maintain · weight progress is undefined here",
+          config: { type: CARD, entity: "sensor.sam_status" },
+        },
+        {
+          id: "reached",
+          note: "target passed",
+          config: { type: CARD, entity: "sensor.kim_status" },
+        },
+        {
+          id: "ended",
+          note: "end date in the past · pounds, not kilograms",
+          config: { type: CARD, entity: "sensor.noor_status" },
+        },
+        {
+          id: "long-history",
+          note: "200 readings · imported · 21 day trend window",
+          config: { type: CARD, entity: "sensor.dana_status" },
+        },
+
+        // --- the empty states ---------------------------------------------
+        {
+          id: "no-goal",
+          note: "nothing set · the goal editor opens by itself",
+          config: { type: CARD, entity: "sensor.blank_status" },
+        },
+        {
+          id: "never-weighed",
+          note: "goal set, no reading · trend off · manual entry not allowed",
+          config: { type: CARD, entity: "sensor.gaps_status" },
+        },
+        {
+          id: "entities-missing",
+          note: "half the goal's entities do not exist",
+          config: { type: CARD, entity: "sensor.stump_status" },
+        },
+
+        // --- the broken ones ------------------------------------------------
+        {
+          id: "writes-fail",
+          note: "every write is rejected · type a weight and press save",
+          config: { type: CARD, entity: "sensor.grumpy_status" },
+        },
+        {
+          id: "reads-fail",
+          note: "the measurement service is gone · notice above the chart",
+          config: { type: CARD, entity: "sensor.offline_status" },
+        },
+        {
+          id: "dangling-entity",
+          note: "anchor points at an entity that does not exist",
+          config: { type: CARD, entity: "sensor.ghost_status" },
+        },
+        {
+          id: "not-a-goal",
+          note: "anchor is an unrelated entity · expects the no-entities message",
+          config: { type: CARD, entity: "sensor.kitchen_temperature" },
+        },
+        {
+          id: "no-target",
+          note: "entities found but none usable as an action target",
+          config: {
+            type: CARD,
+            entities: { start_weight: "number.alex_start_weight" },
+          },
+        },
+        {
+          id: "config-throws",
+          note: "no anchor at all · setConfig must throw, not render",
+          config: { type: CARD },
+        },
+
+        // --- discovery ------------------------------------------------------
+        {
+          id: "by-device",
+          note: "anchored on the device instead of an entity",
+          config: { type: CARD, device_id: "dev_kim" },
+        },
+        {
+          id: "by-entities",
+          note: "explicit entity map, no discovery",
+          config: {
+            type: CARD,
+            name: "Hand wired",
+            entities: {
+              status: "sensor.sam_status",
+              weight: "sensor.sam_weight",
+              start_weight: "number.sam_start_weight",
+              target_weight: "number.sam_target_weight",
+              start_date: "date.sam_start_date",
+              end_date: "date.sam_end_date",
+            },
+          },
+        },
+        {
+          id: "by-prefix",
+          note: "not in the registry · found by entity id prefix only",
+          config: { type: CARD, entity: "sensor.loose_status" },
+        },
+
+        // --- sections -------------------------------------------------------
+        {
+          id: "header-compact",
+          note: "header: compact",
+          config: { type: CARD, entity: "sensor.alex_status", header: "compact" },
+        },
+        {
+          id: "no-header",
+          note: "show_header: false",
+          config: { type: CARD, entity: "sensor.alex_status", show_header: false },
+        },
+        {
+          id: "chart-only",
+          note: "every section off except the chart",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_header: false,
+            show_hero: false,
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+          },
+        },
+        {
+          id: "no-chart",
+          note: "show_chart: false · nothing is fetched at all",
+          config: { type: CARD, entity: "sensor.alex_status", show_chart: false },
+        },
+        {
+          id: "record-only",
+          note: "the weight field without the restart button",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_chart: false,
+            show_badges: false,
+            show_restart: false,
+            show_goal_editor: false,
+          },
+        },
+        {
+          id: "restart-only",
+          note: "the restart button without the weight field",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_chart: false,
+            show_badges: false,
+            show_record: false,
+            show_goal_editor: false,
+          },
+        },
+        {
+          id: "name-and-icon",
+          note: "name and icon overridden",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            name: "Alex · cut for the season",
+            icon: "mdi:scale-bathroom",
+            show_chart: false,
+            show_goal_editor: false,
+          },
+        },
+
+        // --- badges -----------------------------------------------------------
+        {
+          id: "badges-all",
+          note: "every built-in badge at once",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_chart: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            badges: [
+              "last_measurement",
+              "projected_date",
+              "trend",
+              "deviation",
+              "remaining",
+              "target_weight_today",
+              "weight_progress",
+              "time_progress",
+              "start_weight",
+              "target_weight",
+              "rate_per_week",
+              "start_date",
+              "end_date",
+              "source",
+            ],
+          },
+        },
+        {
+          id: "badges-custom",
+          note: "custom badges · the last one names an entity that is gone",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_chart: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            badges: [
+              "trend",
+              { entity: "sensor.alex_body_fat", icon: "mdi:percent-outline", name: "Body fat" },
+              { entity: "sensor.kitchen_temperature" },
+              { entity: "sensor.nothing_here", name: "Gone" },
+            ],
+          },
+        },
+        {
+          id: "badges-none",
+          note: "badges: [] · the row should disappear, not sit empty",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_chart: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            badges: [],
+          },
+        },
+
+        // --- states that need a click to reach ---------------------------------
+        {
+          id: "goal-editor-open",
+          note: "the goal editor, opened · rate is derived here, so it is read only",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_hero: false,
+            show_badges: false,
+            show_chart: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+          },
+          drive: async (card) => {
+            card.shadowRoot.querySelector("wg-goal-editor").shadowRoot.querySelector(
+              "details",
+            ).open = true;
+          },
+        },
+        {
+          id: "goal-editor-open-legacy",
+          note: "same, on an integration too old to say which value is derived",
+          config: {
+            type: CARD,
+            entity: "sensor.legacy_status",
+            show_hero: false,
+            show_badges: false,
+            show_chart: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+          },
+          drive: async (card) => {
+            card.shadowRoot.querySelector("wg-goal-editor").shadowRoot.querySelector(
+              "details",
+            ).open = true;
+          },
+        },
+        {
+          id: "restart-armed",
+          note: "restart pressed · the confirm button and its hint",
+          config: {
+            type: CARD,
+            entity: "sensor.kim_status",
+            show_chart: false,
+            show_badges: false,
+            show_progress: false,
+            show_goal_editor: false,
+          },
+          drive: async (card) => {
+            const actions = card.shadowRoot.querySelector("wg-actions").shadowRoot;
+            [...actions.querySelectorAll("button.control")]
+              .find((b) => b.title)
+              ?.click();
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          },
+        },
+        {
+          id: "write-error",
+          note: "a rejected write · the error banner above the actions",
+          config: {
+            type: CARD,
+            entity: "sensor.grumpy_status",
+            show_chart: false,
+            show_badges: false,
+            show_progress: false,
+            show_goal_editor: false,
+          },
+          drive: async (card) => {
+            const actions = card.shadowRoot.querySelector("wg-actions").shadowRoot;
+            const input = actions.querySelector("input[type=number]");
+            input.value = "88.1";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve, 30));
+            actions.querySelector("button.primary")?.click();
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          },
+        },
+
+        // --- the chart ---------------------------------------------------------
+        {
+          id: "chart-linear-30",
+          note: "line: linear · range: 30 days · 7 day average",
+          config: {
+            type: CARD,
+            entity: "sensor.dana_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            line: "linear",
+            range: 30,
+            average: 7,
+          },
+        },
+        {
+          id: "chart-step-all-history",
+          note: "line: step · range: all · read from the recorder, not the service",
+          config: {
+            type: CARD,
+            entity: "sensor.dana_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            line: "step",
+            range: "all",
+            source: "history",
+            show: { band: false, plan: false },
+          },
+        },
+        {
+          id: "chart-tight-axis",
+          note: "y_axis tight, pinned min/max, 7 ticks, plan may not widen it",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            y_axis: { mode: "tight", min: 83, max: 89, ticks: 7, include_goal: false },
+          },
+        },
+        {
+          id: "chart-bare",
+          note: "every chart element switched off",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            show: {
+              band: false,
+              plan: false,
+              projection: false,
+              points: false,
+              average: false,
+              today: false,
+              grid: false,
+              axis: false,
+            },
+          },
+        },
+        {
+          id: "chart-styled",
+          note: "nested chart: form · height 320 · every series restyled",
+          config: {
+            type: CARD,
+            entity: "sensor.alex_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            chart: {
+              range: "goal",
+              height: 320,
+              average: 14,
+              styles: {
+                weight: { color: "auto", width: 3, point_size: 3 },
+                average: { color: "#7e57c2", width: 2, dash: "1 4" },
+                plan: { color: "#ff7043", width: 2, dash: "6 4" },
+                band: { color: "#ff7043", opacity: 0.12 },
+                projection: { color: "#26a69a", width: 2, dash: "2 6" },
+              },
+            },
+          },
+        },
+      ];
+
+      // =====================================================================
+      // Rendering
+      // =====================================================================
+
+      const drives = [];
+
+      function mountCase(lane, kase, laneId) {
+        const wrap = document.createElement("div");
+        wrap.className = "case";
+        wrap.id = `${laneId}-${kase.id}`;
+
+        const label = document.createElement("span");
+        label.className = "label";
+        label.innerHTML = `<b>${kase.id}</b> — ${kase.note}`;
+        wrap.append(label);
+
+        try {
+          const card = document.createElement("weight-goal-card");
+          // The same order Lovelace uses: config first, then hass.
+          card.setConfig(kase.config);
+          card.hass = buildHass();
+          mounted.push(card);
+          wrap.append(card);
+          // Some states are only reachable through the UI -- the goal editor
+          // is collapsed until clicked, the confirm button only exists after
+          // the restart button was pressed, the error banner only after a
+          // write was rejected. A case can drive itself into one, so that a
+          // screenshot covers it too.
+          if (kase.drive) drives.push(() => kase.drive(card));
+        } catch (error) {
+          // Lovelace replaces a card whose setConfig throws with an error card.
+          const box = document.createElement("div");
+          box.className = "config-error";
+          box.textContent = `setConfig threw: ${error.message}`;
+          wrap.append(box);
+        }
+
+        lane.append(wrap);
+      }
+
+      function lane(title, laneId, extraClass) {
+        const heading = document.createElement("h2");
+        heading.className = `lane-title ${extraClass ?? ""}`;
+        heading.textContent = title;
+        const element = document.createElement("div");
+        element.className = `lane ${extraClass ?? ""}`;
+        element.id = laneId;
+        document.getElementById("app").append(heading, element);
+        return element;
+      }
+
+      const shown = ONLY.length
+        ? cases.filter((kase) => ONLY.includes(kase.id))
+        : cases;
+      if (ONLY.length && !shown.length) {
+        throw new Error(`?only= matched no case: ${ONLY.join(", ")}`);
+      }
+
+      const wide = lane(
+        GALLERY ? `${GALLERY}px` : "Gallery",
+        "gallery-lane",
+        "gallery-lane-class",
+      );
+      for (const kase of shown) mountCase(wide, kase, "wide");
+
+      if (!GALLERY) {
+        // Point 3 of the brief: the same selection again, in a column that is
+        // much too narrow. 280px is below the card's own 320px container
+        // query, so the compact layouts are what is on screen here.
+        const narrow = lane("Narrow column, 280px", "narrow-lane", "narrow-lane");
+        narrow.style.setProperty("--lane", "280px");
+        document.querySelectorAll("h2.narrow-lane").forEach((h) => {
+          h.classList.add("narrow-lane-title");
+        });
+        for (const kase of shown) mountCase(narrow, kase, "narrow");
+      }
+
+      // The more-info dialog is Home Assistant's, so the harness only reports
+      // that the card asked for one.
+      document.addEventListener("hass-more-info", (event) => {
+        toast(`hass-more-info → ${event.detail?.entityId ?? "(none)"}`);
+      });
+
+      function toast(text) {
+        const element = document.createElement("div");
+        element.textContent = text;
+        document.getElementById("toast").append(element);
+        setTimeout(() => element.remove(), 2600);
+      }
+
+      // --- the toolbar ------------------------------------------------------
+
+      const links = document.getElementById("links");
+      const link = (label, changes) => {
+        const next = new URLSearchParams(location.search);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value === null) next.delete(key);
+          else next.set(key, value);
+        }
+        const anchor = document.createElement("a");
+        anchor.href = `?${next}`;
+        anchor.textContent = label;
+        const current = new URLSearchParams(location.search);
+        anchor.ariaCurrent = String(
+          Object.entries(changes).every(([key, value]) =>
+            value === null ? !current.has(key) : current.get(key) === String(value),
+          ),
+        );
+        links.append(anchor);
+      };
+      link("light", { theme: "light" });
+      link("dark", { theme: "dark" });
+      link("en", { lang: null });
+      link("de", { lang: "de" });
+      link("gallery 360", { gallery: 360 });
+      link("gallery 480", { gallery: 480 });
+
+      // =====================================================================
+      // The handle for measuring.
+      //
+      // Everything a DOM query needs: the fake state, the mounted cards, and
+      // a promise that resolves once every card has settled -- the chart only
+      // has a width after its ResizeObserver has reported, so a screenshot
+      // taken before that shows empty plot areas.
+      // =====================================================================
+
+      async function settle() {
+        // Deliberately not requestAnimationFrame: a headless or backgrounded
+        // tab does not paint, so rAF never fires there and every screenshot
+        // would hang. A timer still lets layout, the ResizeObserver and the
+        // fake service round trips run.
+        for (let round = 0; round < 8; round += 1) {
+          await Promise.all(mounted.map((card) => card.updateComplete));
+          await new Promise((resolve) => setTimeout(resolve, 60));
+        }
+        await Promise.all(mounted.map((card) => card.updateComplete));
+      }
+
+      window.wg = {
+        store,
+        cases,
+        cards: mounted,
+        hass: buildHass,
+        publish,
+        recompute,
+        settle,
+        goal: (slug) => store.goals.get(slug),
+        /** The card of one case, by the id in its label. */
+        card: (id, laneId = "wide") =>
+          document.getElementById(`${laneId}-${id}`)?.querySelector("weight-goal-card"),
+        /** Height for the screenshot command. */
+        height: () => document.body.scrollHeight,
+        /**
+         * Icons that share a placeholder inside one card. Below 300px the icon
+         * is the only thing separating one status or button from another, so
+         * a collision here is a picture that lies -- not a bug in the card,
+         * but a reason not to trust the picture.
+         */
+        iconCollisions: () => {
+          const out = [];
+          for (const card of mounted) {
+            const icons = [];
+            const walk = (root) => {
+              for (const el of root.querySelectorAll("*")) {
+                if (el.tagName === "HA-ICON") {
+                  icons.push([el.dataset.icon, el.shadowRoot.innerHTML]);
+                }
+                if (el.shadowRoot) walk(el.shadowRoot);
+              }
+            };
+            walk(card.shadowRoot);
+            const byShape = new Map();
+            for (const [name, shape] of icons) {
+              const key = shape.slice(shape.indexOf("<g"));
+              const names = byShape.get(key) ?? new Set();
+              names.add(name);
+              byShape.set(key, names);
+            }
+            for (const names of byShape.values()) {
+              if (names.size > 1) out.push([...names]);
+            }
+          }
+          return [...new Set(out.map((n) => n.sort().join(" = ")))];
+        },
+      };
+
+      window.wgReady = (async () => {
+        await settle();
+        for (const drive of drives) await drive();
+        await settle();
+        document.body.dataset.ready = "true";
+        return true;
+      })();
+    </script>
+  </body>
+</html>

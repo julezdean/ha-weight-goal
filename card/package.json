@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "rollup -c",
+    "preview": "echo \"preview: http://localhost:8765/card/preview.html\" && python3 -m http.server 8765 --bind 127.0.0.1 --directory ..",
     "watch": "rollup -c --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

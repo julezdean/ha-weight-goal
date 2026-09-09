@@ -682,6 +682,95 @@ bundle in a release is otherwise invisible.
 two have to agree or the drawn line will not pass through
 `sensor.<name>_target_weight_today`.
 
+### Looking at the cards without Home Assistant
+
+`card/preview.html` renders the cards against a fake Home Assistant, so a change
+can be looked at, clicked and photographed without an instance. It loads the
+built bundle from `custom_components/weight_goal/www/`, the same file that
+ships, so what it shows is what is delivered. It is not part of the bundle and
+adds no dependency.
+
+```bash
+cd card && npm run preview
+```
+
+That serves the repository over HTTP on port 8765 — ES modules do not load over
+`file://` — and prints the URL: <http://localhost:8765/card/preview.html>.
+
+Thirty-seven cards, covering every status, both goal modes, both measurement
+sources, all three ways the card discovers entities, a goal in pounds, the empty
+states (no goal, never weighed, entities missing) and the broken ones (writes
+rejected, readings unavailable, dangling anchor, config that throws). Each one
+is repeated in a 280px column, below the card's own 300 and 320px breakpoints.
+
+**What is faked**, and nothing else:
+
+| Faked | Why, and how far |
+| --- | --- |
+| `ha-card`, `ha-icon` | Host components. Same box, same theme variables, same icon size. The icon artwork is a placeholder: a distinct shape per icon name, with the name on `data-icon`. Below 300px the card hides the status text and below 320px the button labels, so the icon is the only thing left telling two controls apart — `wg.iconCollisions()` asserts no two icons in one card drew the same placeholder. |
+| The `hass` object | States, entity registry, device registry, locale. One fake instance holding every fixture goal, so entity discovery runs for real. |
+| The service layer | `callService` and `connection.sendMessagePromise`. **These write.** A press, a typed weight or an edited date changes the fake state, recomputes the goal the way `manager.py` does and pushes a new `hass` to every card, including other cards showing the same goal. A stub that only logged would leave the whole input → state → redraw path untested. |
+| `formatEntityState` | The one Home Assistant formatting helper the card calls. |
+
+**What is not faked**: the card bundle, the theme variables (Home Assistant's own
+defaults), and the card editor — which needs `ha-form` and its selectors, a
+bigger fake than the thing under test, so the editor is out of scope here.
+
+Query parameters, so a picture is a command rather than a sequence of clicks:
+
+| Parameter | Effect |
+| --- | --- |
+| `?theme=light\|dark` | Which set of theme variables to define. Default light. |
+| `?lang=en\|de` | `hass.language` and the locale. Default English. |
+| `?gallery=<px>` | Drop the prose and the narrow column, and lay every card out at exactly `<px>` wide. |
+| `?only=<id>,<id>` | Only these cases, by the id printed above each card. |
+
+#### Screenshots
+
+Headless Chrome, no dependency. Measure the height first rather than guessing
+it, and note that a full gallery is taller than Chrome will put in one bitmap
+(~16k device pixels) — that is what `?only=` is for.
+
+```bash
+node card/tools/preview-probe.mjs 'wg.height()' --width=420 --url='http://localhost:8765/card/preview.html?gallery=360'
+```
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=420,<height> --screenshot=card.png "http://localhost:8765/card/preview.html?gallery=360&only=behind"
+```
+
+```bash
+magick card.png -strip -colors 256 card.png
+```
+
+The last step drops around two thirds of the file on a flat UI with no visible
+loss.
+
+#### Measuring
+
+A screenshot says something looks wrong; a DOM query says by how many pixels and
+why. `window.wg` on the page exposes the fake store, the mounted cards,
+`wg.card(id)`, `wg.settle()` and `wg.height()`.
+
+`card/tools/preview-probe.mjs` evaluates an expression against the page in the
+same headless Chrome the screenshots come from, and prints the result as JSON.
+Node built-ins only.
+
+```bash
+node card/tools/preview-probe.mjs '[...wg.card("behind").shadowRoot.querySelector("wg-progress").shadowRoot.querySelectorAll(".label")].map(l => l.getBoundingClientRect().left)'
+```
+
+Headless Chrome rather than any browser at hand is deliberate: the chart draws
+nothing until its `ResizeObserver` reports a width, and a tab that never becomes
+visible never reports one.
+
+One thing does not follow the page: `<input type="date">` and
+`<input type="number">` in the goal editor are rendered by the browser in the
+operating system's region format, not in `?lang`. Neither `?lang` nor Chrome's
+`--lang` changes them — on a machine set to a German region the date fields read
+`31.07.2026` even though `navigator.language` is `en-GB`. A screenshot showing
+the goal editor is therefore reproducible on one machine, not across machines.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
