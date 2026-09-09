@@ -4,7 +4,7 @@ A Home Assistant integration that tracks your weight against a planned
 trajectory: from a start weight to a target weight over a date range, for
 losing, maintaining or gaining.
 
-![The card: name, end date and status, the current weight and how far it is from plan, a row of badges, the chart with the plan line and the tolerance band, and the weight and time progress bars.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
+![Four configurations of the same card on a dark theme. Top left the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Top right the same card without the chart, showing the weight field and the restart button. Bottom left a tight axis over the last thirty days, where the individual readings are visible as dots. Bottom right a wide chart in custom colours, showing the moving average over the raw line.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
 
 ## What this integration does not do
 
@@ -697,7 +697,7 @@ cd card && npm run preview
 That serves the repository over HTTP on port 8765 — ES modules do not load over
 `file://` — and prints the URL: <http://localhost:8765/card/preview.html>.
 
-Thirty-seven cards, covering every status, both goal modes, both measurement
+Forty-four cards, covering every status, both goal modes, both measurement
 sources, all three ways the card discovers entities, a goal in pounds, the empty
 states (no goal, never weighed, entities missing) and the broken ones (writes
 rejected, readings unavailable, dangling anchor, config that throws). Each one
@@ -707,7 +707,7 @@ is repeated in a 280px column, below the card's own 300 and 320px breakpoints.
 
 | Faked | Why, and how far |
 | --- | --- |
-| `ha-card`, `ha-icon` | Host components. Same box, same theme variables, same icon size. The icon artwork is a placeholder: a distinct shape per icon name, with the name on `data-icon`. Below 300px the card hides the status text and below 320px the button labels, so the icon is the only thing left telling two controls apart — `wg.iconCollisions()` asserts no two icons in one card drew the same placeholder. |
+| `ha-card`, `ha-icon` | Host components. Same box, same theme variables, same icon size. The icons are the real ones: the 33 paths the card can ask for, lifted once from `hass_frontend/static/mdi` in the development virtualenv and embedded as data. That matters because below 300px the card hides the status text and below 320px the button labels, so the icon becomes the only thing telling two controls apart, and stand-ins cannot answer whether that works. A name with no path falls back to a generated shape; `wg.iconCollisions()` asserts no two icons in one card drew the same thing. |
 | The `hass` object | States, entity registry, device registry, locale. One fake instance holding every fixture goal, so entity discovery runs for real. |
 | The service layer | `callService` and `connection.sendMessagePromise`. **These write.** A press, a typed weight or an edited date changes the fake state, recomputes the goal the way `manager.py` does and pushes a new `hass` to every card, including other cards showing the same goal. A stub that only logged would leave the whole input → state → redraw path untested. |
 | `formatEntityState` | The one Home Assistant formatting helper the card calls. |
@@ -724,6 +724,7 @@ Query parameters, so a picture is a command rather than a sequence of clicks:
 | `?lang=en\|de` | `hass.language` and the locale. Default English. |
 | `?gallery=<px>` | Drop the prose and the narrow column, and lay every card out at exactly `<px>` wide. |
 | `?only=<id>,<id>` | Only these cases, by the id printed above each card. |
+| `?labels=0` | Drop the fixture captions, for a picture that goes somewhere else. |
 
 #### Screenshots
 
@@ -745,6 +746,25 @@ magick card.png -strip -colors 256 card.png
 
 The last step drops around two thirds of the file on a flat UI with no visible
 loss.
+
+The picture at the top of this README is four of those cases, and it is made
+from this page rather than from an instance, so it can be redone after a UI
+change. The `showcase-` cases are the YAML examples under
+[Examples](#examples), verbatim. With `npm run preview` running:
+
+```bash
+cd card && shot() { u="http://localhost:8765/card/preview.html?gallery=360&theme=dark&labels=0&only=$2"; h=$(node tools/preview-probe.mjs 'wg.height()' --width=360 --url="$u"); "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=360,$h --virtual-time-budget=15000 --screenshot=/tmp/$1.png "$u"; }; shot colA showcase-line,showcase-tight; shot colB showcase-numbers,showcase-styled
+```
+
+```bash
+magick /tmp/colA.png /tmp/colB.png -background '#111111' -gravity north -extent 720x1526 +smush 40 -bordercolor '#111111' -border 40 -strip -colors 256 ../docs/card.png
+```
+
+`--virtual-time-budget` is not optional: without it Chrome shoots on `load`,
+before the fake service round trips have landed and before the chart's
+`ResizeObserver` has reported a width, and the plot areas come out empty. The
+`-extent` size is the widest and tallest column, doubled for the device scale
+factor; `wg.height()` prints each height.
 
 #### Measuring
 
