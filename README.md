@@ -4,7 +4,7 @@ A Home Assistant integration that tracks your weight against a planned
 trajectory: from a start weight to a target weight over a date range, for
 losing, maintaining or gaining.
 
-![Four configurations of the same card on a dark theme. Top left the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Top right the same card without the chart, showing the weight field and the restart button. Bottom left a tight axis over the last thirty days, where the individual readings are visible as dots. Bottom right a wide chart in custom colours, showing the moving average over the raw line.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
+![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the weight field and the restart button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
 
 ## What this integration does not do
 
@@ -753,18 +753,23 @@ change. The `showcase-` cases are the YAML examples under
 [Examples](#examples), verbatim. With `npm run preview` running:
 
 ```bash
-cd card && shot() { u="http://localhost:8765/card/preview.html?gallery=360&theme=dark&labels=0&only=$2"; h=$(node tools/preview-probe.mjs 'wg.height()' --width=360 --url="$u"); "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=360,$h --virtual-time-budget=15000 --screenshot=/tmp/$1.png "$u"; }; shot colA showcase-line,showcase-tight; shot colB showcase-numbers,showcase-styled
+cd card && shot() { u="http://localhost:8765/card/preview.html?gallery=360&theme=dark&labels=0&only=$1"; h=$(node tools/preview-probe.mjs 'wg.height()' --width=360 --url="$u"); "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=360,$h --virtual-time-budget=15000 --screenshot=/tmp/$1.png "$u"; }; shot showcase-line; shot showcase-styled; shot showcase-numbers; shot showcase-tight
 ```
 
 ```bash
-magick /tmp/colA.png /tmp/colB.png -background '#111111' -gravity north -extent 720x1526 +smush 40 -bordercolor '#111111' -border 40 -strip -colors 256 ../docs/card.png
+magick /tmp/showcase-line.png /tmp/showcase-styled.png /tmp/showcase-numbers.png /tmp/showcase-tight.png -background '#111111' -gravity north -extent 720x930 +smush 40 -bordercolor '#111111' -border 40 -strip -colors 256 ../docs/card.png
 ```
 
 `--virtual-time-budget` is not optional: without it Chrome shoots on `load`,
 before the fake service round trips have landed and before the chart's
-`ResizeObserver` has reported a width, and the plot areas come out empty. The
-`-extent` size is the widest and tallest column, doubled for the device scale
-factor; `wg.height()` prints each height.
+`ResizeObserver` has reported a width, and the plot areas come out empty.
+
+The `-extent` size is the tallest card, doubled for the device scale factor;
+`wg.height()` prints each one. The cards go in from tallest to shortest, so the
+unequal heights read as a step rather than a zigzag. A row rather than a grid
+because a page renders the picture at its container width: the wider and
+flatter it is, the smaller each card comes out, and two columns were being
+blown up on a wide page.
 
 #### Measuring
 
