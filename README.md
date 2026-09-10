@@ -4,17 +4,19 @@ A Home Assistant integration that tracks your weight against a planned
 trajectory: from a start weight to a target weight over a date range, for
 losing, maintaining or gaining.
 
+It reads whatever numeric entity you point it at, from any scale integration
+you already use, or it takes the weights you type in yourself. Out of that it
+builds the plan: where you should be today, how far off you are, which way the
+last few days are trending, and when you arrive at that rate. A status sums it
+up — `ahead`, `on_track`, `behind` — with a tolerance band wide enough that it
+does not flip on every fluctuation.
+
+Every change lands on the event bus, so your own automations decide what gets
+notified, spoken or displayed. For the dashboard a card ships with the
+integration, from the whole goal down to the chart on its own. Nothing is
+polled, and nothing leaves your instance.
+
 ![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the weight field and the restart button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
-
-## What this integration does not do
-
-It does not weigh you, it does not notify you, and it does not speak. It keeps
-numbers, dates and a status, and it fires events. Everything visible or audible
-comes from your own automations and scripts.
-
-It also does not talk to any scale. It reads whatever numeric entity you point
-it at, from any scale integration you already use, or it takes weights you type
-in yourself. Nothing leaves your instance.
 
 ## Features
 
