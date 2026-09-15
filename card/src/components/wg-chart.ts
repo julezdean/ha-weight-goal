@@ -263,7 +263,7 @@ export class WgChart extends LitElement {
     // guess: with a tight axis these carry a decimal and a fixed guess clips.
     const widest = Math.max(
       ...scale.ticks.map(
-        (value) => formatNumber(this.hass, value, scale.decimals).length,
+        (value, i) => formatNumber(this.hass, value, scale.decimals[i]).length,
       ),
       2,
     );
@@ -314,7 +314,7 @@ export class WgChart extends LitElement {
     if (!this._shown("grid", true)) {
       return nothing;
     }
-    const lines = scale.ticks.map((value) => {
+    const lines = scale.ticks.map((value, i) => {
       const position = y(value);
       return svg`
         <line class="grid" x1=${padLeft} x2=${width - padRight}
@@ -322,7 +322,7 @@ export class WgChart extends LitElement {
         ${
           showAxis
             ? svg`<text class="axis" x=${padLeft - 6} y=${position + 3}
-                        text-anchor="end">${formatNumber(this.hass, value, scale.decimals)}</text>`
+                        text-anchor="end">${formatNumber(this.hass, value, scale.decimals[i])}</text>`
             : nothing
         }
       `;

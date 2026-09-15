@@ -334,7 +334,7 @@ which wins over the flat form.
 | `line` | `smooth` | `smooth`, `linear` or `step`. |
 | `height` | `190` / `220` | Chart height in pixels. |
 | `y_axis.min` / `y_axis.max` | – | Pin one or both ends of the vertical axis. Leave out for automatic. Readings outside are clipped, not squeezed in. |
-| `y_axis.mode` | `nice` | `nice` rounds the automatic ends outwards to readable numbers. `tight` uses the smallest and largest value exactly, which is worth it when the movement is small compared to the goal range. |
+| `y_axis.mode` | `nice` | `nice` rounds the automatic ends outwards to readable numbers. `tight` uses the smallest and largest value exactly, which is worth it when the movement is small compared to the goal range. The two ends are labelled with their exact value, so they may carry more decimals than the lines between them. |
 | `y_axis.include_goal` | `true` | Whether the plan line and the band may widen the axis. `false` fits the axis to the readings and clips the plan. |
 | `y_axis.ticks` | `4` | Roughly how many grid lines to draw. |
 | `show.band`, `show.plan`, `show.average`, `show.projection`, `show.points`, `show.today`, `show.grid`, `show.axis` | all `true` | Individual layers. |

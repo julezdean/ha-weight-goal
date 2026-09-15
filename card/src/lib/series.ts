@@ -153,8 +153,23 @@ export interface Scale {
   step: number;
   /** Values to draw a grid line and a label at, low to high. */
   ticks: number[];
-  /** Decimals the labels need so two ticks never print the same text. */
-  decimals: number;
+  /**
+   * Decimals for each tick's label, in the same order. The grid ticks share
+   * the step's precision; the two ends may need more, because with a tight or
+   * pinned axis they sit wherever the data put them, and a label rounded to
+   * the step would name a value the line is not at.
+   */
+  decimals: number[];
+}
+
+/** Fewest decimals, from `least` up to two, that print `value` without rounding. */
+function decimalsFor(value: number, least: number): number {
+  for (let digits = least; digits < 2; digits++) {
+    if (Math.abs(Number(value.toFixed(digits)) - value) < 1e-6) {
+      return digits;
+    }
+  }
+  return 2;
 }
 
 /** Round a step up to 1, 2, 5 or 10 times a power of ten. */
@@ -232,7 +247,7 @@ export function buildScale(
   low = tidy(low);
   high = tidy(high);
   const step = niceStep((high - low) / count);
-  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+  const gridDecimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
 
   const ticks: number[] = [low];
   const margin = step * 0.4;
@@ -249,6 +264,8 @@ export function buildScale(
   if (high > low) {
     ticks.push(high);
   }
+
+  const decimals = ticks.map((value) => decimalsFor(value, gridDecimals));
 
   return { min: low, max: high, step, ticks, decimals };
 }

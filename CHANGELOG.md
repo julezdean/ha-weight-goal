@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The top and bottom label of the vertical axis name the value their line is
+  at. With a tight or pinned axis the ends sit wherever the data put them, but
+  they were printed with the grid's precision: a plan ending at 73 kg with a
+  0.5 kg band showed its lowest line as 73 instead of 72.5, below a second 73,
+  so the plan seemed to stop short of its target. The ends now carry the
+  decimals they need, up to two.
+
 ## [0.5.1] - 2026-09-04
 
 ### Changed

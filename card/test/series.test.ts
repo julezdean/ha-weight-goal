@@ -180,8 +180,30 @@ describe("buildScale", () => {
 
   it("asks for enough decimals that two labels never read the same", () => {
     const scale = buildScale([77.0, 77.6], { mode: "tight" });
-    const labels = scale.ticks.map((v) => v.toFixed(scale.decimals));
+    const labels = scale.ticks.map((v, i) => v.toFixed(scale.decimals[i]));
     expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  // A plan from 78 to 73 with a 0.5 band: the ends are 72.5 and 78.5. Printed
+  // with the grid's whole kilograms they read 73 and 79, and the plan seemed to
+  // end below its own target.
+  it.each([
+    ["tight, many lines", { mode: "tight" as const, ticks: 6 }],
+    ["tight, only the ends", { mode: "tight" as const, ticks: 1 }],
+    ["nice", { ticks: 6 }],
+    ["pinned off the grid", { min: 72.25, max: 78.5, ticks: 6 }],
+  ])("labels every line with the value it sits at (%s)", (_, options) => {
+    const scale = buildScale([78.5, 72.5, 78.4, 73], options);
+    expect(scale.decimals).toHaveLength(scale.ticks.length);
+    scale.ticks.forEach((value, i) => {
+      expect(Number(value.toFixed(scale.decimals[i]))).toBeCloseTo(value, 6);
+    });
+  });
+
+  it("gives only the ends extra decimals, and keeps the grid lines", () => {
+    const scale = buildScale([78.5, 72.5], { mode: "tight", ticks: 6 });
+    expect(scale.ticks).toEqual([72.5, 73, 74, 75, 76, 77, 78, 78.5]);
+    expect(scale.decimals).toEqual([1, 0, 0, 0, 0, 0, 0, 1]);
   });
 });
 

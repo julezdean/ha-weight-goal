@@ -2072,6 +2072,36 @@
           },
         },
         {
+          id: "chart-tight-band-ends",
+          note: "y_axis tight around the band, 6 ticks: the ends are 74.5 and 80.5, not 75 and 81",
+          config: {
+            type: CARD,
+            entity: "sensor.kim_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            range: "goal",
+            y_axis: { mode: "tight", ticks: 6 },
+          },
+        },
+        {
+          id: "chart-tight-band-only-ends",
+          note: "the same with one tick: only the two ends, each with its exact value",
+          config: {
+            type: CARD,
+            entity: "sensor.kim_status",
+            show_badges: false,
+            show_progress: false,
+            show_record: false,
+            show_restart: false,
+            show_goal_editor: false,
+            range: "goal",
+            y_axis: { mode: "tight", ticks: 1 },
+          },
+        },
+        {
           id: "chart-bare",
           note: "every chart element switched off",
           config: {
