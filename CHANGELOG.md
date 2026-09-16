@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-16
+
+### Changed
+
+- HACS installs from an archive attached to the release rather than from the
+  repository itself. `zip_release` in `hacs.json` points at a `weight_goal.zip`
+  that a release workflow builds from the contents of
+  `custom_components/weight_goal`, the committed card bundle included, so an
+  install arrives with its cards and HACS has an asset to count downloads on.
+
 ### Fixed
 
 - The top and bottom label of the vertical axis name the value their line is
@@ -190,6 +200,8 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.5.2]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.5.2
+[0.5.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.5.1
 [0.5.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.5.0
 [0.4.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.4.0
 [0.3.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.3.0
