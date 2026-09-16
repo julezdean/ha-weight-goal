@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-16
+
 ### Added
 
 - `show_record_date` takes the day field away from the card's weight input.
@@ -243,6 +245,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.7.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.7.0
 [0.6.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.6.1
 [0.6.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.6.0
 [0.5.2]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.5.2
