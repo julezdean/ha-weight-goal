@@ -38,6 +38,12 @@ polled, and nothing leaves your instance.
 
 ### HACS
 
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=julezdean&repository=ha-weight-goal&category=integration)
+
+The button opens the repository in your own HACS, adding it as a custom
+repository if it is not known there yet. Download it and restart Home
+Assistant. By hand it is the same thing:
+
 1. In HACS, open the three dot menu and choose **Custom repositories**.
 2. Add `https://github.com/julezdean/ha-weight-goal` with the category
    **Integration**.
