@@ -6,7 +6,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -16,6 +15,12 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.target import async_extract_referenced_entity_ids
+
+try:  # 2026.1 renamed the class, and the old name goes away in 2026.12.
+    from homeassistant.helpers.target import TargetSelection
+except ImportError:  # Home Assistant < 2026.1
+    from homeassistant.helpers.target import TargetSelectorData as TargetSelection
 
 from .const import (
     ATTR_DAYS,
@@ -48,7 +53,11 @@ from .history_import import MAX_IMPORT_DAYS, async_import_history
 if TYPE_CHECKING:
     from .manager import WeightGoalManager
 
-BASE_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
+#: The service picker offers an entity, a device, an area, a floor or a label,
+#: and it offers them whatever the target in services.yaml narrows down to. A
+#: schema that only knows entity_id refuses the other four outright, so it takes
+#: all of them and leaves an empty target to _managers, which says so in words.
+BASE_SCHEMA = vol.Schema(cv.TARGET_SERVICE_FIELDS)
 
 RECORD_WEIGHT_SCHEMA = BASE_SCHEMA.extend(
     {
@@ -93,11 +102,18 @@ IMPORT_HISTORY_SCHEMA = BASE_SCHEMA.extend(
 
 
 def _managers(hass: HomeAssistant, call: ServiceCall) -> list[WeightGoalManager]:
-    """Resolve the targeted entities to their config entries."""
+    """Resolve whatever was targeted to the config entries behind it.
+
+    A device, an area, a floor and a label all come down to a set of entities,
+    and every entity of a goal names the same config entry, so the five ways of
+    aiming at a goal end in one lookup. Sorted, so that a call naming several
+    goals answers in the same order twice.
+    """
+    selected = async_extract_referenced_entity_ids(hass, TargetSelection(call.data))
     registry = er.async_get(hass)
     managers: dict[str, WeightGoalManager] = {}
 
-    for entity_id in call.data[ATTR_ENTITY_ID]:
+    for entity_id in sorted(selected.referenced | selected.indirectly_referenced):
         entry = registry.async_get(entity_id)
         if entry is None or entry.platform != DOMAIN or entry.config_entry_id is None:
             continue

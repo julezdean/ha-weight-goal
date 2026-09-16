@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Every service accepts the target the picker offered it. The picker lists the
+  device, an area, a floor and a label next to the entity, but the services
+  only ever read `entity_id`, so picking the device failed validation instead
+  of recording anything. All five now resolve to the goal behind them, and a
+  call with no target at all says so in words rather than as a schema error.
+
 ## [0.6.0] - 2026-09-16
 
 ### Added

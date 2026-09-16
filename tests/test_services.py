@@ -8,6 +8,12 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import (
+    area_registry as ar,
+    device_registry as dr,
+    entity_registry as er,
+    label_registry as lr,
+)
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -248,4 +254,95 @@ async def test_service_without_a_matching_target(
             SERVICE_RECORD_WEIGHT,
             {"entity_id": "sensor.somewhere_else", "weight": 80.0},
             blocking=True,
+        )
+
+
+async def test_record_weight_targeting_a_device(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The device the entities belong to works as a target.
+
+    The service picker offers the device next to the entity, and a goal is one
+    device, so picking it is the obvious way to aim at a goal.
+    """
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device = dr.async_get(hass).async_get_device(
+        identifiers={(DOMAIN, mock_entry.entry_id)}
+    )
+    assert device is not None
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_RECORD_WEIGHT,
+        {"device_id": device.id, "weight": 79.4},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.julien_weight").state == "79.4"
+
+
+async def test_record_weight_targeting_an_area(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """A goal is reachable through the room its device stands in."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    area = ar.async_get(hass).async_create("Bathroom")
+    device = dr.async_get(hass).async_get_device(
+        identifiers={(DOMAIN, mock_entry.entry_id)}
+    )
+    dr.async_get(hass).async_update_device(device.id, area_id=area.id)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_RECORD_WEIGHT,
+        {"area_id": area.id, "weight": 79.4},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.julien_weight").state == "79.4"
+
+
+async def test_record_weight_targeting_a_label(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """A label on one entity of the goal is enough to aim at it."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    label = lr.async_get(hass).async_create("Weighing in")
+    er.async_get(hass).async_update_entity(
+        "sensor.julien_status", labels={label.label_id}
+    )
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_RECORD_WEIGHT,
+        {"label_id": label.label_id, "weight": 79.4},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.julien_weight").state == "79.4"
+
+
+async def test_record_weight_without_a_target(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """A call that names no goal says so, rather than failing validation.
+
+    The target is no longer a required key, so an empty one has to be caught
+    where the goals are looked up.
+    """
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_RECORD_WEIGHT, {"weight": 79.4}, blocking=True
         )

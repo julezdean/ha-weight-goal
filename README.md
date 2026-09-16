@@ -125,8 +125,10 @@ flip the status back and forth on every measurement.
 
 ## Services
 
-All services take an entity of the goal as their target; any sensor of the
-device works. Devices and areas remain selectable.
+All services take the goal as their target, and it can be named in any of the
+ways the picker offers: the device, any entity of it, or the area, floor or
+label it carries. Every one of them comes down to the same goal, so a sensor is
+as good an anchor as the device itself.
 
 | Service | Purpose |
 | --- | --- |
