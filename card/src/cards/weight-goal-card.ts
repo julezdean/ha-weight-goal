@@ -133,6 +133,7 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
                 .hass=${this.hass}
                 .model=${model}
                 .showRecord=${config.show_record !== false}
+                .showRecordDate=${config.show_record_date !== false}
                 .showRestart=${config.show_restart !== false}
               ></wg-actions>`
             : nothing}

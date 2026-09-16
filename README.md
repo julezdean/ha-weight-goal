@@ -385,6 +385,7 @@ Only for the card:
 | --- | --- | --- |
 | `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor` | `true` | Individual sections. |
 | `show_record`, `show_restart` | `true` | The two actions, independent of each other. Both off is no action row at all. |
+| `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 

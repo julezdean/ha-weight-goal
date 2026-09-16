@@ -225,6 +225,8 @@ export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_progress?: boolean;
   /** The two actions, independent of each other. Both off is no action row. */
   show_record?: boolean;
+  /** The day field next to the weight. Off means every reading is today's. */
+  show_record_date?: boolean;
   show_restart?: boolean;
   show_goal_editor?: boolean;
   badges?: BadgeConfig[];

@@ -360,6 +360,49 @@ describe("the two actions", () => {
     ).toBe("2026-09-12");
   });
 
+  it("drops the day field when the dashboard asked it to", async () => {
+    const { hass, model } = build("target");
+    const root = (
+      await render("wg-actions", { hass, model, showRecordDate: false })
+    ).shadowRoot!;
+    expect(root.querySelector('input[type="date"]')).toBeNull();
+    // The weight and the button stay: only the day went away.
+    expect(root.querySelector('input[type="number"]')).not.toBeNull();
+  });
+
+  it("records today even when the entity holds another day", async () => {
+    // Hidden means today, not "obey a date nobody can see": a staged day that
+    // still moved the reading would be the trap the visible field avoids.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const el = await render("wg-actions", {
+      hass: withService,
+      model: { ...model, manualDate: "2026-09-12" },
+      showRecordDate: false,
+    });
+    const root = el.shadowRoot!;
+
+    const weight = root.querySelector('input[type="number"]') as HTMLInputElement;
+    weight.value = "74.2";
+    weight.dispatchEvent(new Event("input"));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+
+    ([...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Save reading"),
+    ) as HTMLButtonElement).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(calls).toHaveBeenCalledWith(
+      "weight_goal",
+      "record_weight",
+      { weight: 74.2 },
+      expect.anything(),
+    );
+  });
+
   it("flips the calendar glyph with the theme, not with the system", async () => {
     // The browser draws that glyph and ignores the CSS color; on a dark theme
     // running on a light machine it would be black on near-black.

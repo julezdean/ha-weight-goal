@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `show_record_date` takes the day field away from the card's weight input.
+  It stays on by default, because a hidden way to catch up on a missed reading
+  is one nobody finds; a dashboard fed by a scale, where the card only confirms
+  what was measured today, can now drop the field it never uses. With the field
+  gone every reading the card saves is today's, `date.<name>_manual_date`
+  included — a day nobody can see would move readings without saying so.
+
 ## [0.6.1] - 2026-09-16
 
 ### Fixed

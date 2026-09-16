@@ -16,7 +16,9 @@ import type { HomeAssistant } from "../types";
  *
  * The day sits next to the weight rather than behind a toggle. It is prefilled
  * with today and can be ignored, so it costs a glance; hidden, catching up on a
- * missed reading would be a feature nobody finds.
+ * missed reading would be a feature nobody finds. That is why it is on by
+ * default, and `show_record_date` only lets a dashboard that never backdates --
+ * a scale writes the readings, the card confirms them -- take the field away.
  */
 @customElement("wg-actions")
 export class WgActions extends LitElement {
@@ -27,6 +29,11 @@ export class WgActions extends LitElement {
   /** The two actions are independent: a scale user may never type a weight,
    * and a goal nobody restarts does not need the button in the way. */
   @property({ type: Boolean }) public showRecord = true;
+
+  /** With the day field hidden, a reading is always today's: an invisible
+   * date that quietly files a reading under another day is the trap the reset
+   * after each save exists to avoid. */
+  @property({ type: Boolean }) public showRecordDate = true;
 
   @property({ type: Boolean }) public showRestart = true;
 
@@ -73,16 +80,18 @@ export class WgActions extends LitElement {
       <div class="actions">
         ${canEnter
           ? html`
-              <input
-                class="day ${this.hass.themes?.darkMode ? "dark" : ""}"
-                type="date"
-                max=${today}
-                .value=${day}
-                aria-label=${t("actions.date_input")}
-                ?disabled=${this._busy}
-                @input=${this._onDayInput}
-                @keydown=${this._onKeydown}
-              />
+              ${this.showRecordDate
+                ? html`<input
+                    class="day ${this.hass.themes?.darkMode ? "dark" : ""}"
+                    type="date"
+                    max=${today}
+                    .value=${day}
+                    aria-label=${t("actions.date_input")}
+                    ?disabled=${this._busy}
+                    @input=${this._onDayInput}
+                    @keydown=${this._onKeydown}
+                  />`
+                : nothing}
               <input
                 class="weight"
                 type="number"
@@ -139,8 +148,14 @@ export class WgActions extends LitElement {
    * staged from a dashboard is the day the card records for as well. An empty
    * field means today rather than nothing: a date input can be cleared, and
    * refusing to save afterwards would be a dead end.
+   *
+   * Without the field there is nothing to follow and nothing to see, so the
+   * entity is ignored rather than obeyed from behind the scenes.
    */
   private _day(model: GoalModel, today: string): string {
+    if (!this.showRecordDate) {
+      return today;
+    }
     return this._dayDraft ?? model.manualDate ?? today;
   }
 
