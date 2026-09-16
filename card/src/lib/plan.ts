@@ -71,6 +71,25 @@ export function zonedMidnight(isoDate: string, timeZone: string): number | null 
   return guess;
 }
 
+/**
+ * Today as `YYYY-MM-DD` in `timeZone`, or in the browser's zone without one.
+ *
+ * The browser is frequently somewhere else than the instance, and a date field
+ * prefilled with the browser's idea of today would be off by a day for anyone
+ * travelling -- exactly the person most likely to be catching up on readings.
+ */
+export function todayInZone(timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const field = (type: string): string =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${field("year")}-${field("month")}-${field("day")}`;
+}
+
 export function addDays(isoDate: string, days: number): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
   if (!match) {

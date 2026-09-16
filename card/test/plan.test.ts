@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   addDays,
@@ -6,6 +6,7 @@ import {
   directionOf,
   directionSign,
   plannedWeight,
+  todayInZone,
   zonedMidnight,
 } from "../src/lib/plan";
 
@@ -101,5 +102,28 @@ describe("direction", () => {
     expect(directionSign("lose")).toBe(-1);
     expect(directionSign("gain")).toBe(1);
     expect(directionSign("maintain")).toBe(0);
+  });
+});
+
+
+describe("todayInZone", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("answers in the zone it is given, not in the browser's", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // Half past midnight in Berlin is still the previous day in UTC, and the
+    // day after next in nobody's zone.
+    vi.setSystemTime(new Date("2026-09-16T22:30:00Z"));
+    expect(todayInZone(TZ)).toBe("2026-09-17");
+    expect(todayInZone("UTC")).toBe("2026-09-16");
+    expect(todayInZone("Pacific/Auckland")).toBe("2026-09-17");
+  });
+
+  it("pads to a value a date input accepts", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-05T12:00:00Z"));
+    expect(todayInZone(TZ)).toBe("2026-01-05");
   });
 });

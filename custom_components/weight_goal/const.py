@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import time
 from typing import Final
 
 DOMAIN: Final = "weight_goal"
@@ -80,6 +81,7 @@ KEY_START_WEIGHT: Final = "start_weight"
 KEY_TARGET_WEIGHT: Final = "target_weight"
 KEY_RATE_PER_WEEK: Final = "rate_per_week"
 KEY_MANUAL_WEIGHT: Final = "manual_weight"
+KEY_MANUAL_DATE: Final = "manual_date"
 KEY_START_DATE: Final = "start_date"
 KEY_END_DATE: Final = "end_date"
 KEY_WEIGHT: Final = "weight"
@@ -139,6 +141,15 @@ ATTR_TOLERANCE_MINUTES: Final = "tolerance_minutes"
 
 #: Default window used to match a timestamp against a stored measurement.
 DEFAULT_MATCH_MINUTES: Final = 5
+
+#: Wall clock time a backdated manual measurement is stored at.
+#:
+#: The entry form asks for a day, not for a minute, so the time has to be
+#: invented. Noon is the least wrong invention: it survives every daylight
+#: saving shift without landing on the neighbouring day, and it sorts after a
+#: morning reading from a scale, so a value typed in by hand afterwards becomes
+#: the one that day ends on rather than being overruled by the scale.
+MANUAL_BACKDATE_TIME: Final = time(12, 0)
 
 #: How long a pending "start today" stays confirmable. Short on purpose:
 #: the point is to catch a stray tap, and a confirmation still standing

@@ -99,6 +99,9 @@
       },
       "end_date": {
         "name": "End date"
+      },
+      "manual_date": {
+        "name": "Date to record"
       }
     },
     "button": {
@@ -276,6 +279,9 @@
     },
     "nothing_to_confirm": {
       "message": "There is no weight waiting to be confirmed. Enter one first."
+    },
+    "date_in_the_future": {
+      "message": "A reading can only be recorded for today or an earlier day."
     }
   }
 }

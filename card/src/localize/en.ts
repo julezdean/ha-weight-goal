@@ -52,6 +52,8 @@ export const en = {
   "actions.failed":
     "That did not work. Check the Home Assistant log for details.",
   "actions.weight_input": "Weight in {unit}",
+  "actions.date_input": "Day of the reading",
+  "actions.future_date": "A reading can only be from today or an earlier day.",
 
   "goal.title": "Goal",
   "goal.derived": "calculated",

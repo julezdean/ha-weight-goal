@@ -67,7 +67,7 @@ export const ENTITY_KEYS = {
     "rate_per_week",
     "manual_weight",
   ],
-  date: ["start_date", "end_date"],
+  date: ["start_date", "end_date", "manual_date"],
   button: ["start_today", "confirm_start_today", "record_weight"],
   sensor: [
     "weight",

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "../src/components/wg-actions";
 import "../src/components/wg-badges";
@@ -16,6 +16,7 @@ const ENTITIES = {
   rate_per_week: "number.julien_rate_per_week",
   start_date: "date.julien_start_date",
   manual_weight: "number.julien_manual_weight",
+  manual_date: "date.julien_manual_date",
   start_today: "button.julien_start_today",
   end_date: "date.julien_end_date",
   last_measurement: "sensor.julien_last_measurement",
@@ -30,6 +31,7 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     [ENTITIES.rate_per_week]: "-0.38",
     [ENTITIES.start_date]: "2026-06-14",
     [ENTITIES.manual_weight]: "unknown",
+    [ENTITIES.manual_date]: "2026-09-17",
     [ENTITIES.start_today]: "unknown",
     [ENTITIES.end_date]: "2026-09-20",
     [ENTITIES.last_measurement]: new Date().toISOString(),
@@ -61,10 +63,11 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     measurementSource: "sensor",
     manualAvailable: true,
     manualWeight: null,
+    manualDate: null,
     manualPending: false,
     startTodayArmed: false,
     goal: { begin: 0, finish: 1 },
-    context: { name: "Julien", entities: ENTITIES },
+    context: { name: "Julien", entities: ENTITIES, target: ENTITIES.weight },
   } as unknown as GoalModel;
 
   return { hass, model };
@@ -172,6 +175,10 @@ describe("the header", () => {
 });
 
 describe("the two actions", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const save = (root: ShadowRoot) =>
     [...root.querySelectorAll("button.control")].find((b) =>
       b.textContent?.includes("Save reading"),
@@ -223,6 +230,146 @@ describe("the two actions", () => {
       showRestart: false,
     });
     expect(el.shadowRoot!.querySelector(".actions")).toBeNull();
+  });
+
+  // 00:30 in Berlin, still the sixteenth in UTC. Every date below is the
+  // Berlin one, so a test that passes has used the instance's zone.
+  const MIDNIGHT_IN_BERLIN = "2026-09-16T22:30:00Z";
+
+  /** The card renders, types into both fields and presses save. */
+  async function enter(
+    model: GoalModel,
+    hass: HomeAssistant,
+    weight: string,
+    day?: string,
+  ): Promise<ReturnType<typeof vi.fn>> {
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const root = (
+      await render("wg-actions", { hass: withService, model })
+    ).shadowRoot!;
+
+    if (day !== undefined) {
+      const field = root.querySelector('input[type="date"]') as HTMLInputElement;
+      field.value = day;
+      field.dispatchEvent(new Event("input"));
+    }
+    const field = root.querySelector('input[type="number"]') as HTMLInputElement;
+    field.value = weight;
+    field.dispatchEvent(new Event("input"));
+
+    const button = [...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Save reading"),
+    ) as HTMLButtonElement;
+    await (root.host as unknown as { updateComplete: Promise<unknown> })
+      .updateComplete;
+    button.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return calls;
+  }
+
+  it("offers today, in the zone of the instance", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const root = (await render("wg-actions", { hass, model })).shadowRoot!;
+    const field = root.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(field.value).toBe("2026-09-17");
+    // Nothing later than today: the field is for catching up.
+    expect(field.getAttribute("max")).toBe("2026-09-17");
+  });
+
+  it("records today without inventing a time", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const calls = await enter(model, hass, "74.2");
+    expect(calls).toHaveBeenCalledWith(
+      "weight_goal",
+      "record_weight",
+      { weight: 74.2 },
+      expect.anything(),
+    );
+  });
+
+  it("files an earlier day at noon", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const calls = await enter(model, hass, "76.0", "2026-09-10");
+    expect(calls).toHaveBeenCalledWith(
+      "weight_goal",
+      "record_weight",
+      // No offset: Home Assistant reads it in its own zone, which is where
+      // the integration puts a backdated reading as well.
+      { weight: 76.0, timestamp: "2026-09-10T12:00:00" },
+      expect.anything(),
+    );
+  });
+
+  it("refuses a day that has not happened", async () => {
+    // The input caps itself, but a typed date walks past `max`.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const calls = await enter(model, hass, "74.2", "2026-09-18");
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it("goes back to today after saving", async () => {
+    // A day left standing would quietly backdate the next reading too.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const el = await render("wg-actions", { hass: withService, model });
+    const root = el.shadowRoot!;
+
+    const day = root.querySelector('input[type="date"]') as HTMLInputElement;
+    day.value = "2026-09-10";
+    day.dispatchEvent(new Event("input"));
+    const weight = root.querySelector('input[type="number"]') as HTMLInputElement;
+    weight.value = "76.0";
+    weight.dispatchEvent(new Event("input"));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+
+    ([...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Save reading"),
+    ) as HTMLButtonElement).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+
+    expect(
+      (root.querySelector('input[type="date"]') as HTMLInputElement).value,
+    ).toBe("2026-09-17");
+  });
+
+  it("follows a day staged through the entities", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(MIDNIGHT_IN_BERLIN));
+    const { hass, model } = build("target");
+    const root = (
+      await render("wg-actions", {
+        hass,
+        model: { ...model, manualDate: "2026-09-12" },
+      })
+    ).shadowRoot!;
+    expect(
+      (root.querySelector('input[type="date"]') as HTMLInputElement).value,
+    ).toBe("2026-09-12");
+  });
+
+  it("flips the calendar glyph with the theme, not with the system", async () => {
+    // The browser draws that glyph and ignores the CSS color; on a dark theme
+    // running on a light machine it would be black on near-black.
+    const { hass, model } = build("target");
+    const dark = { ...hass, themes: { darkMode: true } } as typeof hass;
+    const root = (await render("wg-actions", { hass: dark, model })).shadowRoot!;
+    expect(root.querySelector("input.day")!.classList.contains("dark")).toBe(true);
+
+    const light = (await render("wg-actions", { hass, model })).shadowRoot!;
+    expect(light.querySelector("input.day")!.classList.contains("dark")).toBe(false);
   });
 
   it("translates the restart hint", async () => {

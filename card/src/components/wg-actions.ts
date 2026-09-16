@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import { attributeOf } from "../lib/format";
+import { todayInZone } from "../lib/plan";
 import { localize, translator } from "../localize";
 import { sharedStyles } from "../shared-styles";
 import type { GoalModel } from "../lib/goal";
@@ -12,6 +13,10 @@ import type { HomeAssistant } from "../types";
  * keeps it that way: typing a weight stages it, pressing "Save reading" records
  * it. Collapsing that into one control would hand back exactly the mistyped
  * reading the integration is built to avoid.
+ *
+ * The day sits next to the weight rather than behind a toggle. It is prefilled
+ * with today and can be ignored, so it costs a glance; hidden, catching up on a
+ * missed reading would be a feature nobody finds.
  */
 @customElement("wg-actions")
 export class WgActions extends LitElement {
@@ -26,6 +31,9 @@ export class WgActions extends LitElement {
   @property({ type: Boolean }) public showRestart = true;
 
   @state() private _draft: string | null = null;
+
+  /** ISO day, or `null` while the field still follows the staged entity. */
+  @state() private _dayDraft: string | null = null;
 
   @state() private _error: string | null = null;
 
@@ -51,6 +59,8 @@ export class WgActions extends LitElement {
     const max = attributeOf<number>(this.hass, entities.manual_weight, "max") ?? 300;
     const shown =
       this._draft ?? (model.manualWeight === null ? "" : String(model.manualWeight));
+    const today = todayInZone(this.hass.config?.time_zone);
+    const day = this._day(model, today);
 
     return html`
       ${this._error
@@ -64,6 +74,17 @@ export class WgActions extends LitElement {
         ${canEnter
           ? html`
               <input
+                class="day ${this.hass.themes?.darkMode ? "dark" : ""}"
+                type="date"
+                max=${today}
+                .value=${day}
+                aria-label=${t("actions.date_input")}
+                ?disabled=${this._busy}
+                @input=${this._onDayInput}
+                @keydown=${this._onKeydown}
+              />
+              <input
+                class="weight"
                 type="number"
                 inputmode="decimal"
                 step="0.1"
@@ -111,6 +132,18 @@ export class WgActions extends LitElement {
     `;
   }
 
+  /**
+   * The day the next reading is filed under.
+   *
+   * Follows `date.<name>_manual_date` until the field is touched, so a day
+   * staged from a dashboard is the day the card records for as well. An empty
+   * field means today rather than nothing: a date input can be cleared, and
+   * refusing to save afterwards would be a dead end.
+   */
+  private _day(model: GoalModel, today: string): string {
+    return this._dayDraft ?? model.manualDate ?? today;
+  }
+
   private _hasDraft(model: GoalModel): boolean {
     if (this._draft !== null && this._draft !== "") {
       return true;
@@ -120,6 +153,11 @@ export class WgActions extends LitElement {
 
   private _onInput = (event: Event): void => {
     this._draft = (event.target as HTMLInputElement).value;
+    this._error = null;
+  };
+
+  private _onDayInput = (event: Event): void => {
+    this._dayDraft = (event.target as HTMLInputElement).value;
     this._error = null;
   };
 
@@ -146,16 +184,29 @@ export class WgActions extends LitElement {
       this._error = localize(this.hass, "actions.enter_number");
       return;
     }
+    const today = todayInZone(this.hass.config?.time_zone);
+    const day = this._day(model, today) || today;
+    if (day > today) {
+      this._error = localize(this.hass, "actions.future_date");
+      return;
+    }
     this._busy = true;
     this._error = null;
     try {
       await this.hass.callService(
         "weight_goal",
         "record_weight",
-        { weight },
+        // Today keeps the current time. An earlier day has no time of its own,
+        // so it gets noon -- written without an offset, which Home Assistant
+        // reads in its own zone, the same instant the integration picks for a
+        // reading staged through the entities.
+        day === today ? { weight } : { weight, timestamp: `${day}T12:00:00` },
         { entity_id: target },
       );
       this._draft = null;
+      // Back to today rather than back to the entity: the day was for that one
+      // reading, and a stale one would quietly backdate the next.
+      this._dayDraft = today;
     } catch (error) {
       this._error = errorMessage(this.hass, error);
     } finally {
@@ -187,9 +238,21 @@ export class WgActions extends LitElement {
         flex-wrap: wrap;
         gap: 8px;
       }
-      input {
+      input.weight {
         flex: 1 1 90px;
         min-width: 80px;
+      }
+      input.day {
+        flex: 1 1 130px;
+        min-width: 120px;
+        /* The calendar glyph is drawn by the browser and ignores the CSS
+           color; color-scheme is what flips it, and it has to come from the
+           Home Assistant theme rather than from the system: a dark theme on a
+           light machine would otherwise put a black icon on a dark field. */
+        color-scheme: light;
+      }
+      input.day.dark {
+        color-scheme: dark;
       }
       button.control {
         flex: 1 1 auto;

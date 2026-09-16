@@ -24,6 +24,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -73,6 +74,7 @@ from .const import (
     EVENT_STATUS_CHANGED,
     HYSTERESIS_FACTOR,
     KEY_WEIGHT,
+    MANUAL_BACKDATE_TIME,
     MAX_MEASUREMENTS,
     MAX_PROJECTION_DAYS,
     MODE_RATE,
@@ -138,6 +140,7 @@ class StoredState:
     measurements: list[Measurement] = field(default_factory=list)
     manual_weight: float | None = None
     manual_pending: bool = False
+    manual_date: str | None = None
     status: str = STATUS_NO_GOAL
     goal_reached_fired: bool = False
     goal_ended_fired: bool = False
@@ -268,6 +271,17 @@ class WeightGoalManager:
     def manual_pending(self) -> bool:
         """Whether the manual weight is a draft waiting to be confirmed."""
         return self._state.manual_pending
+
+    @property
+    def manual_date(self) -> date:
+        """Day the staged weight will be recorded for.
+
+        Today unless a day was explicitly staged. "Today" is resolved on every
+        read rather than stored, so the field is correct after midnight without
+        anything having to reset it; the rollover timer writes the new state.
+        """
+        staged = parse_date(self._state.manual_date)
+        return staged if staged is not None else dt_util.now(self.zone).date()
 
     # ------------------------------------------------------------------
     # Derived values
@@ -528,16 +542,56 @@ class WeightGoalManager:
         await self._async_save()
         self._notify()
 
+    async def async_stage_manual_date(self, day: date) -> None:
+        """Hold the day the staged weight belongs to.
+
+        A day in the future is refused rather than clamped: the field exists to
+        catch up on readings, and silently turning tomorrow into today would
+        record a measurement nobody asked for.
+
+        Today is stored as "no day", so the field keeps following the calendar
+        instead of freezing on the date it was set.
+        """
+        today = dt_util.now(self.zone).date()
+        if day > today:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="date_in_the_future"
+            )
+        self._state.manual_date = None if day == today else day.isoformat()
+        await self._async_save()
+        self._notify()
+
+    def _manual_timestamp(self) -> datetime | None:
+        """When a staged weight would be recorded, or ``None`` for now.
+
+        Today keeps the current time: a reading taken this morning should not
+        claim to be from noon, and a noon stamp written at 07:00 would sit in
+        the future.
+        """
+        day = self.manual_date
+        if day >= dt_util.now(self.zone).date():
+            return None
+        return wall_clock(day, self.zone, MANUAL_BACKDATE_TIME)
+
     async def async_confirm_manual_weight(self) -> bool:
         """Record the staged weight. Returns ``False`` when there is none."""
         if not self._state.manual_pending or self._state.manual_weight is None:
             return False
         weight = self._state.manual_weight
+        stamp = self._manual_timestamp()
+        staged_day = self._state.manual_date
         self._state.manual_pending = False
-        recorded = await self.async_record_weight(weight, source=SOURCE_MANUAL)
+        # Cleared before recording, not after: recording saves on its way out,
+        # so a day left standing here would be written to storage again and
+        # come back after a restart. The day belonged to this one reading.
+        self._state.manual_date = None
+        recorded = await self.async_record_weight(
+            weight, timestamp=stamp, source=SOURCE_MANUAL
+        )
         if not recorded:
             # Rejected as implausible; leave it staged so the user can correct it.
             self._state.manual_pending = True
+            self._state.manual_date = staged_day
             self._notify()
         return recorded
 
@@ -561,7 +615,7 @@ class WeightGoalManager:
             )
             return False
 
-        previous = self.last_measurement
+        previous = self._preceding(stamp)
         if previous is not None:
             if self.max_jump > 0 and abs(weight - previous.weight) > self.max_jump:
                 _LOGGER.warning(
@@ -583,7 +637,12 @@ class WeightGoalManager:
         self._state.measurements.append(entry)
         self._state.measurements.sort(key=lambda m: m.timestamp)
         del self._state.measurements[:-MAX_MEASUREMENTS]
-        self._state.overdue_fired_for = None
+        if self._state.measurements and self._state.measurements[-1] is entry:
+            # Only a reading that is now the newest one ends the silence. A
+            # reading entered for an earlier day leaves the gap where it is,
+            # and re-arming the reminder for it would report the same overdue
+            # measurement twice.
+            self._state.overdue_fired_for = None
 
         await self._async_dispatch(
             EVENT_MEASUREMENT_RECORDED,
@@ -593,6 +652,17 @@ class WeightGoalManager:
         self._schedule_overdue()
         await self.async_refresh()
         return True
+
+    def _preceding(self, stamp: datetime) -> Measurement | None:
+        """The measurement a new one at ``stamp`` would follow.
+
+        Not simply the newest one: a reading entered for an earlier day is
+        judged against its own neighbour, not against today's weight. Otherwise
+        catching up on a reading from months ago would trip the jump guard for
+        exactly the distance the goal has made since.
+        """
+        earlier = [m for m in self._state.measurements if m.timestamp <= stamp]
+        return earlier[-1] if earlier else None
 
     @property
     def weight_entity_id(self) -> str | None:
@@ -665,6 +735,7 @@ class WeightGoalManager:
         ):
             self._state.manual_weight = None
             self._state.manual_pending = False
+            self._state.manual_date = None
         self._schedule_overdue()
         await self.async_refresh()
         return best
@@ -820,6 +891,7 @@ class WeightGoalManager:
                 measurements=measurements[-MAX_MEASUREMENTS:],
                 manual_weight=raw.get("manual_weight"),
                 manual_pending=bool(raw.get("manual_pending")),
+                manual_date=raw.get("manual_date"),
                 status=raw.get("status", STATUS_NO_GOAL),
                 goal_reached_fired=bool(raw.get("goal_reached_fired")),
                 goal_ended_fired=bool(raw.get("goal_ended_fired")),
@@ -1126,6 +1198,7 @@ class WeightGoalManager:
                 "measurements": [m.as_dict() for m in self._state.measurements],
                 "manual_weight": self._state.manual_weight,
                 "manual_pending": self._state.manual_pending,
+                "manual_date": self._state.manual_date,
                 "status": self._state.status,
                 "goal_reached_fired": self._state.goal_reached_fired,
                 "goal_ended_fired": self._state.goal_ended_fired,

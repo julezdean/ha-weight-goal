@@ -99,6 +99,9 @@
       },
       "end_date": {
         "name": "Zieldatum"
+      },
+      "manual_date": {
+        "name": "Datum zum Erfassen"
       }
     },
     "button": {
@@ -276,6 +279,9 @@
     },
     "nothing_to_confirm": {
       "message": "Es wartet kein Gewicht auf Bestätigung. Trage zuerst eines ein."
+    },
+    "date_in_the_future": {
+      "message": "Eine Messung lässt sich nur für heute oder einen früheren Tag erfassen."
     }
   }
 }

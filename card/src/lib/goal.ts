@@ -56,6 +56,7 @@ export interface GoalModel {
   projectedDate: number | null;
 
   manualWeight: number | null;
+  manualDate: string | null;
   manualPending: boolean;
   manualAvailable: boolean;
   recordAvailable: boolean;
@@ -120,6 +121,7 @@ export function readGoal(
     projectedDate: timestampOf(hass, e.projected_date),
 
     manualWeight: numberOf(hass, e.manual_weight),
+    manualDate: textOf(hass, e.manual_date),
     manualPending: attributeOf<boolean>(hass, e.manual_weight, "pending") === true,
     // A button that was never pressed reads `unknown`, and a number that was
     // never set reads `unknown` too. Only `unavailable` means "not offered".

@@ -564,6 +564,7 @@
           target_weight: "Target weight",
           rate_per_week: "Change per week",
           manual_weight: "Weight to record",
+          manual_date: "Date to record",
           start_date: "Start date",
           end_date: "End date",
           start_today: "Start today",
@@ -585,6 +586,7 @@
           target_weight: "Zielgewicht",
           rate_per_week: "Änderung pro Woche",
           manual_weight: "Gewicht zum Erfassen",
+          manual_date: "Datum zum Erfassen",
           start_date: "Startdatum",
           end_date: "Zieldatum",
           start_today: "Heute als Start",
@@ -630,6 +632,7 @@
         // number.py sets "<mass>/w", not the plain mass unit.
         rate_per_week: { domain: "number", unit: "kg/w", precision: 2, min: -3, max: 3, step: 0.01 },
         manual_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
+        manual_date: { domain: "date" },
         start_date: { domain: "date" },
         end_date: { domain: "date" },
         start_today: { domain: "button" },
@@ -1083,7 +1086,10 @@
           if (weight < 20 || weight > 300) {
             throw serviceError(`${weight} kg is outside the plausible range 20-300 kg`);
           }
-          record(goal, weight, "manual");
+          // A naive timestamp is what the card sends for an earlier day;
+          // Home Assistant reads it in the instance's zone. The harness runs
+          // in that zone already, so `Date.parse` agrees.
+          record(goal, weight, "manual", data.timestamp ? Date.parse(data.timestamp) : undefined);
         } else if (domain === "number" && service === "set_value") {
           setState(id, round(Number(data.value), 2));
           if (id.endsWith("_manual_weight")) {
@@ -1103,12 +1109,16 @@
         return {};
       }
 
-      function record(goal, weight, source) {
-        goal.measurements.push({ t: Date.now(), v: round(weight, 1), source });
+      function record(goal, weight, source, when) {
+        goal.measurements.push({ t: when ?? Date.now(), v: round(weight, 1), source });
         goal.measurements.sort((a, b) => a.t - b.t);
         goal.pinnedWeight = null;
         if (!goal.absent.has("manual_weight")) {
           setState(entityId(goal.slug, "manual_weight"), round(weight, 1), { pending: false });
+        }
+        if (!goal.absent.has("manual_date")) {
+          // The staged day belonged to that one reading.
+          setState(entityId(goal.slug, "manual_date"), todayIso());
         }
         recompute(goal);
       }
@@ -1132,7 +1142,11 @@
           window.clearTimeout(goal.armTimer);
         } else if (key === "record_weight") {
           const value = numberState(entityId(goal.slug, "manual_weight"));
-          if (value !== null) record(goal, value, "manual");
+          const day = store.states[entityId(goal.slug, "manual_date")]?.state;
+          // Noon, like the integration: the field asks for a day, not a time.
+          const when =
+            day && day !== todayIso() ? Date.parse(`${day}T12:00:00`) : undefined;
+          if (value !== null) record(goal, value, "manual", when);
         }
         recompute(goal);
       }
@@ -1294,6 +1308,9 @@
         set("start_today", "unknown");
         set("confirm_start_today", "unavailable");
         set("manual_weight", "unknown");
+        // The integration answers with today until a day is staged, so the
+        // field is never empty.
+        set("manual_date", todayIso());
         // The integration's state machine starts at no_goal, and the "goal
         // set but never weighed" branch carries the previous status forward,
         // so seeding anything else puts an invalid status on the card.
@@ -1474,7 +1491,7 @@
         endDate: ahead(80),
         trendWindow: 0,
         measurements: [],
-        pin: { manual_weight: "unavailable" },
+        pin: { manual_weight: "unavailable", manual_date: "unavailable" },
       });
 
       // Most of the goal is missing: the user hid or removed the entities.
@@ -1489,6 +1506,7 @@
         absent: [
           "rate_per_week",
           "manual_weight",
+          "manual_date",
           "record_weight",
           "start_today",
           "confirm_start_today",

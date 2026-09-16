@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.weight_goal.const import (
     ATTR_TIMESTAMP,
@@ -42,6 +45,15 @@ async def _set_manual(hass: HomeAssistant, value: float) -> None:
         "number",
         "set_value",
         {"entity_id": "number.julien_manual_weight", "value": value},
+        blocking=True,
+    )
+
+
+async def _set_day(hass: HomeAssistant, day: date) -> None:
+    await hass.services.async_call(
+        "date",
+        "set_value",
+        {"entity_id": "date.julien_manual_date", "date": day.isoformat()},
         blocking=True,
     )
 
@@ -378,3 +390,236 @@ async def test_confirm_button_follows_the_manual_switch(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert hass.states.get("button.julien_record_weight").state == "unavailable"
+
+
+async def test_the_day_defaults_to_today(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """Nothing to fill in for the normal case: the reading is from today."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-03-01"
+
+
+async def test_the_day_follows_the_calendar(
+    hass: HomeAssistant, frozen: FrozenDateTimeFactory, mock_entry: MockConfigEntry
+) -> None:
+    """Today is resolved on every read, so midnight moves the field along."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    frozen.move_to(NOW + timedelta(days=1))
+    async_fire_time_changed(hass, NOW + timedelta(days=1))
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-03-02"
+
+
+async def test_picking_a_day_records_nothing(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The day is staged like the weight; only the button writes."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 2, 25))
+    await hass.async_block_till_done()
+
+    assert mock_entry.runtime_data.measurements == []
+    assert hass.states.get("date.julien_manual_date").state == "2026-02-25"
+    # A day on its own is not something to confirm.
+    assert hass.states.get("button.julien_record_weight").state == "unavailable"
+
+
+async def test_a_backdated_reading_lands_at_noon_local(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The form asks for a day, so the time is invented -- at noon, locally."""
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 2, 25))
+    await _set_manual(hass, 81.2)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    recorded = mock_entry.runtime_data.measurements[0]
+    assert recorded.weight == 81.2
+    assert recorded.source == SOURCE_MANUAL
+    # 12:00 CET is 11:00 UTC. A UTC noon would be an hour off, a midnight
+    # eleven -- and on the wrong side of the day boundary for zones east of it.
+    assert recorded.timestamp == datetime(2026, 2, 25, 11, 0, tzinfo=dt_util.UTC)
+
+
+async def test_todays_reading_keeps_the_current_time(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """Noon is for days that are over; today still happens at a known time."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 3, 1))
+    await _set_manual(hass, 79.9)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert mock_entry.runtime_data.last_measurement.timestamp == NOW
+
+
+async def test_a_backdated_reading_is_not_the_current_weight(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """Catching up on an old day must not rewrite where the goal stands."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    manager = mock_entry.runtime_data
+
+    await _set_manual(hass, 79.0)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 2, 20))
+    await _set_manual(hass, 83.0)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert [m.weight for m in manager.measurements] == [83.0, 79.0]
+    assert manager.current_weight == 79.0
+
+
+async def test_the_day_resets_after_recording(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The day belonged to that one reading, not to the field."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 2, 25))
+    await _set_manual(hass, 81.2)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-03-01"
+
+
+async def test_the_day_stays_after_a_rejected_reading(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """A correction of the weight must not silently move to today."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _set_day(hass, date(2026, 2, 25))
+    await mock_entry.runtime_data.async_stage_manual_weight(5.0)
+    assert await mock_entry.runtime_data.async_confirm_manual_weight() is False
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-02-25"
+
+
+async def test_a_staged_day_survives_a_restart(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """A draft is a weight and a day; both have to come back."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    await _set_day(hass, date(2026, 2, 25))
+    await _set_manual(hass, 81.4)
+    await hass.async_block_till_done()
+
+    assert await hass.config_entries.async_unload(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-02-25"
+    assert mock_entry.runtime_data.measurements == []
+
+
+async def test_a_recorded_day_does_not_survive_a_restart(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The reset has to reach storage, not just the entity."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    await _set_day(hass, date(2026, 2, 25))
+    await _set_manual(hass, 81.4)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert await hass.config_entries.async_unload(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-03-01"
+
+
+async def test_a_day_in_the_future_is_refused(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The field is for catching up, not for inventing readings."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await _set_day(hass, date(2026, 3, 2))
+
+    assert hass.states.get("date.julien_manual_date").state == "2026-03-01"
+
+
+async def test_the_day_follows_the_manual_switch(hass: HomeAssistant, frozen) -> None:
+    """With manual entry off there is nothing to date."""
+    entry = make_entry(
+        hass, **{CONF_SOURCE_ENTITY: "sensor.scale", CONF_ALLOW_MANUAL: False}
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("date.julien_manual_date").state == "unavailable"
+
+
+async def test_backdating_is_judged_against_its_own_neighbour(
+    hass: HomeAssistant, frozen
+) -> None:
+    """The jump guard watches the scale, not the distance the goal has come."""
+    entry = make_entry(hass, max_jump=3.0)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    manager = entry.runtime_data
+
+    await manager.async_record_weight(78.0)
+    await hass.async_block_till_done()
+
+    # 90 kg two months ago is six months of progress away from today's 78, and
+    # nothing a scale could have misread.
+    await _set_day(hass, date(2026, 1, 1))
+    await _set_manual(hass, 90.0)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert [m.weight for m in manager.measurements] == [90.0, 78.0]
+
+
+async def test_backdating_does_not_re_arm_the_overdue_reminder(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """The gap in the readings is still there; it was only documented."""
+    assert await hass.config_entries.async_setup(mock_entry.entry_id)
+    await hass.async_block_till_done()
+    manager = mock_entry.runtime_data
+
+    await manager.async_record_weight(80.0, timestamp=NOW - timedelta(days=10))
+    await hass.async_block_till_done()
+    await manager._async_fire_overdue()
+    fired = manager._state.overdue_fired_for
+    assert fired is not None
+
+    await _set_day(hass, (NOW - timedelta(days=20)).date())
+    await _set_manual(hass, 82.0)
+    await _confirm(hass)
+    await hass.async_block_till_done()
+
+    assert manager._state.overdue_fired_for == fired

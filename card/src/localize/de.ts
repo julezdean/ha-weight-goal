@@ -52,6 +52,9 @@ export const de: Record<TranslationKey, string> = {
   "actions.failed":
     "Das hat nicht geklappt. Die Einzelheiten stehen im Home-Assistant-Log.",
   "actions.weight_input": "Gewicht in {unit}",
+  "actions.date_input": "Tag der Messung",
+  "actions.future_date":
+    "Eine Messung kann nur von heute oder einem früheren Tag sein.",
 
   "goal.title": "Ziel",
   "goal.derived": "berechnet",

@@ -16,7 +16,7 @@ notified, spoken or displayed. For the dashboard a card ships with the
 integration, from the whole goal down to the chart on its own. Nothing is
 polled, and nothing leaves your instance.
 
-![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the weight field and the restart button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
+![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the day and weight fields and the restart button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
 
 ## Features
 
@@ -88,6 +88,7 @@ instance runs in. Display names are translated.
 | `number.<name>_target_weight` | Number | Read only when the goal is defined by rate. |
 | `number.<name>_rate_per_week` | Number | Read only when the goal is defined by target weight. |
 | `number.<name>_manual_weight` | Number | Holds a weight until you confirm it. Nothing is recorded by typing alone. Unavailable while a weight source is configured, unless you switch manual entry back on. |
+| `date.<name>_manual_date` | Date | The day that weight is recorded for. Shows today until you pick another one, and goes back to today after each reading. Days in the future are refused. |
 | `date.<name>_start_date` | Date | First day of the goal. |
 | `date.<name>_end_date` | Date | Last day of the goal. It counts towards the goal in full. |
 | `button.<name>_record_weight` | Button | Records the weight held above. Unavailable while there is nothing to confirm. |
@@ -145,6 +146,30 @@ you press it nothing reaches the history, so a value typed into the wrong field
 costs you nothing. The button stays unavailable while there is nothing waiting.
 
 Automations do not need the two steps; `record_weight` writes directly.
+
+#### Catching up on an older reading
+
+`date.<name>_manual_date` says which day the weight belongs to. It shows today,
+so the normal case needs nothing, and picking an earlier day before confirming
+files the reading under that day instead. A day of its own does not arm the
+confirm button, and after a reading is recorded the field returns to today, so
+the next one is not backdated by a field nobody cleared.
+
+A day has no time of its own, so a backdated reading is stored at 12:00 local
+time. That is late enough to sit after a morning reading from a scale — a value
+you type in afterwards is the one that day ends on — and far enough from
+midnight to survive every daylight saving shift on the day it belongs to. A
+reading for today keeps the current time instead.
+
+The plausibility and jump checks look at the reading before the new one in
+time, not at the newest one overall, so catching up on a weight from months ago
+is not rejected for being far from where you are now.
+
+Only the internal history is written retroactively. The recorder cannot be
+written in the past, so a backdated reading shows up in the card (which reads
+the measurements) but not in the history of `sensor.<name>_weight`. Use
+`weight_goal.import_history` with `write_statistics` if the long term
+statistics matter to you.
 
 ### Reading the two progress sensors
 
@@ -639,6 +664,10 @@ Switch the mode under **Configure → Settings**.
 
 **Everything is `unknown`.** No measurement has been recorded yet. Enter one
 through `number.<name>_manual_weight` or wait for the source entity.
+
+**A reading landed on the wrong day.** The day comes from
+`date.<name>_manual_date`, which is today unless you picked another one.
+`weight_goal.delete_measurement` removes the wrong one.
 
 ## For developers
 

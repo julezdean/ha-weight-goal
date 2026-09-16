@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A reading can be entered for an earlier day. `date.<name>_manual_date` sits
+  next to the weight and shows today, so nothing changes for the usual case;
+  picking a day before confirming files the reading under that day. The card
+  has the same field next to its weight input. A day of its own does not arm
+  the confirm button, and the field returns to today after each reading, so a
+  forgotten day cannot backdate the next one. Days in the future are refused.
+- A backdated reading is stored at 12:00 local time. A day has no time of its
+  own, and noon is the one that sits after a morning reading from a scale and
+  far enough from midnight to survive a daylight saving shift.
+
+### Changed
+
+- The plausibility jump check and the duplicate check compare a new reading
+  against the one before it in time rather than against the newest one. For a
+  reading recorded now this is the same measurement as before; for one entered
+  for an earlier day it is the difference that reading actually represents,
+  instead of the distance the goal has covered since.
+- Entering a reading for an earlier day no longer re-arms the overdue
+  reminder. The gap in the readings is still there; it was only documented.
+
 ## [0.5.2] - 2026-09-16
 
 ### Changed
