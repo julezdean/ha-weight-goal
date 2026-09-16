@@ -3,8 +3,6 @@ record_weight:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
   fields:
     weight:
       required: true
@@ -27,8 +25,6 @@ set_goal:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
   fields:
     start_weight:
       required: false
@@ -70,24 +66,18 @@ reset_goal:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
 
 ignore_last_measurement:
   target:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
 
 get_measurements:
   target:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
   fields:
     days:
       required: false
@@ -104,8 +94,6 @@ import_history:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
   fields:
     source_entity:
       required: false
@@ -141,8 +129,6 @@ delete_measurement:
     entity:
       integration: weight_goal
       domain: sensor
-    device:
-      integration: weight_goal
   fields:
     timestamp:
       required: true
