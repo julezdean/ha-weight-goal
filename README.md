@@ -25,7 +25,7 @@ polled, and nothing leaves your instance.
 - Losing, maintaining and gaining goals. The status knows which way is good.
 - The goal is defined either by a target weight or by a change per week. The
   other value is calculated and read only, so the two can never drift apart.
-- Status with a tolerance band and hysteresis: `ahead`, `on_track`, `behind`,
+- Status with a tolerance band: `ahead`, `on_track`, `behind`,
   `reached`, `ended`, `no_goal`.
 - Events on the event bus, plus optional actions you can configure in the UI.
 - Nothing is polled. The integration reacts to your weight source and to a
@@ -119,9 +119,10 @@ instance runs in. Display names are translated.
 A maintain goal has no `ahead`: any drift beyond the tolerance in either
 direction reports `behind`.
 
-Once the status is `ahead` or `behind` it only returns to `on_track` at half
-the tolerance. Without that hysteresis a weight sitting on the threshold would
-flip the status back and forth on every measurement.
+The status follows the latest reading: inside the tolerance band is
+`on_track`, outside it is `ahead` or `behind`. A weight sitting on the edge of
+the band can therefore change the status with every measurement; widen the
+tolerance if that is too restless.
 
 ## Services
 
@@ -658,9 +659,6 @@ exactly at any resolution without sampling anything.
 
 **A weight was ignored.** Look for a warning in the log naming the value. It is
 either outside the plausible range or beyond the largest accepted change.
-
-**The status will not leave `behind`.** The hysteresis holds it until the
-deviation is back inside half the tolerance.
 
 **The target weight cannot be edited.** The goal is defined by change per week.
 Switch the mode under **Configure → Settings**.

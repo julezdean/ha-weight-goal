@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The status follows the latest reading. A reading inside the tolerance band
+  is `on_track`, whatever the status was before; until now a goal that had
+  left the band only came back at half the tolerance. That hysteresis was
+  invisible: the card draws the full band, so a reading plainly inside it
+  could still say `behind`. A weight on the edge of the band may now change
+  the status with each measurement, and the tolerance is the knob for that.
+
 ## [0.7.0] - 2026-09-16
 
 ### Added

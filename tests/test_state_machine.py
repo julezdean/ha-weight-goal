@@ -111,7 +111,7 @@ async def test_no_goal_to_on_track(
 async def test_on_track_to_ahead_and_back(
     hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
 ) -> None:
-    """Ahead needs the full tolerance, returning needs half of it."""
+    """The status follows the latest reading against the tolerance band."""
     assert await hass.config_entries.async_setup(mock_entry.entry_id)
     await hass.async_block_till_done()
 
@@ -121,12 +121,8 @@ async def test_on_track_to_ahead_and_back(
     await record(hass, mock_entry, 79.4)  # 0.6 kg below plan, tolerance is 0.5
     assert status(hass) == STATUS_AHEAD
 
-    # Hysteresis: 0.4 kg below plan is inside the tolerance but outside half of
-    # it, so the status stays.
+    # 0.4 kg below plan is back inside the tolerance.
     await record(hass, mock_entry, 79.6)
-    assert status(hass) == STATUS_AHEAD
-
-    await record(hass, mock_entry, 79.9)
     assert status(hass) == STATUS_ON_TRACK
 
 

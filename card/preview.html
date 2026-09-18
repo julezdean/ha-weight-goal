@@ -776,7 +776,7 @@
       //
       // Not a fake in the sense the others are: this is a second, independent
       // implementation of what manager.py computes (planned weight, deviation,
-      // progress, trend, projection, status with its hysteresis). It has to
+      // progress, trend, projection, status). It has to
       // exist for a write to have a visible consequence, and writing it from
       // helpers.py rather than from the card's own lib/plan.ts is deliberate:
       // when the plan line the card draws disagrees with the planned-weight
@@ -784,7 +784,6 @@
       // =====================================================================
 
       const MAINTAIN_EPSILON = 0.01;
-      const HYSTERESIS_FACTOR = 0.5;
       const PROJECTION_WINDOW_DAYS = 14;
       const MAX_PROJECTION_DAYS = 3650;
 
@@ -964,8 +963,7 @@
           }
         }
 
-        // Status, including the sticky band that keeps a goal from flickering
-        // between on_track and behind.
+        // Status. The previous one only carries over while nothing is measured.
         const previous = store.states[id("status")]?.state ?? "no_goal";
         let status;
         if (!hasGoal) {
@@ -979,10 +977,7 @@
         } else if (deviation === null) {
           status = "on_track";
         } else {
-          const band =
-            previous === "ahead" || previous === "behind"
-              ? goal.tolerance * HYSTERESIS_FACTOR
-              : goal.tolerance;
+          const band = goal.tolerance;
           if (sign === 0) {
             status = Math.abs(deviation) <= band ? "on_track" : "behind";
           } else {

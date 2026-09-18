@@ -72,7 +72,6 @@ from .const import (
     EVENT_MEASUREMENT_OVERDUE,
     EVENT_MEASUREMENT_RECORDED,
     EVENT_STATUS_CHANGED,
-    HYSTERESIS_FACTOR,
     KEY_WEIGHT,
     MANUAL_BACKDATE_TIME,
     MAX_MEASUREMENTS,
@@ -483,9 +482,6 @@ class WeightGoalManager:
             return STATUS_ON_TRACK
 
         band = self.tolerance
-        if self._state.status in (STATUS_AHEAD, STATUS_BEHIND):
-            band = self.tolerance * HYSTERESIS_FACTOR
-
         if sign == 0:
             return STATUS_ON_TRACK if abs(deviation) <= band else STATUS_BEHIND
 

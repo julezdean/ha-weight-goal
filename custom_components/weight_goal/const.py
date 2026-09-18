@@ -61,10 +61,6 @@ MAX_MEASUREMENTS: Final = 400
 #: silently disable the projection as well.
 PROJECTION_WINDOW_DAYS: Final = 14
 
-#: A status only returns to ``on_track`` once the deviation is back inside this
-#: fraction of the tolerance band. Prevents flapping around the threshold.
-HYSTERESIS_FACTOR: Final = 0.5
-
 #: Missed timers older than this are dropped instead of fired on start up.
 CATCHUP_GRACE_HOURS: Final = 24
 
