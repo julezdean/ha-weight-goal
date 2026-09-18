@@ -6,14 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-18
+
 ### Fixed
 
 - A weight typed with a comma stays in the field. On a German iPhone the
   keypad offers a comma, and the moment it was typed the card emptied the
   field: a number input reports "73," as no value at all, and the card wrote
-  that back. The weight and the goal fields are text fields with a decimal
-  keypad now, take a comma or a point, and show their value with the
-  separator of the Home Assistant language.
+  that back. The weight and the goal fields are text fields now, take a comma
+  or a point, and show their value with the separator of the Home Assistant
+  language. They keep the decimal keypad, except the rate per week, which
+  needs the minus key that keypad does not have.
 - Clearing a goal field no longer writes zero. An empty field used to be read
   as 0 and sent to the entity on leaving it.
 
@@ -267,6 +270,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.8.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.1
 [0.8.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.0
 [0.7.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.7.0
 [0.6.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.6.1
