@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-18
+
 ### Changed
 
 - The status follows the latest reading. A reading inside the tolerance band
@@ -254,6 +256,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.8.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.0
 [0.7.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.7.0
 [0.6.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.6.1
 [0.6.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.6.0
