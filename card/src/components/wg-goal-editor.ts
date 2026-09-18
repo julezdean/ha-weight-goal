@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { attributeOf } from "../lib/format";
+import { attributeOf, formatInput, parseDecimal } from "../lib/format";
 import { entityLabel, localize } from "../localize";
 import { sharedStyles } from "../shared-styles";
 import { errorMessage } from "./wg-actions";
@@ -49,7 +49,6 @@ export class WgGoalEditor extends LitElement {
             entities.rate_per_week,
             `${model.unit}/w`,
             mode === "target",
-            0.01,
           )}
           ${this._dateRow(entities.start_date)}
           ${this._dateRow(entities.end_date)}
@@ -72,13 +71,12 @@ export class WgGoalEditor extends LitElement {
    * `derived` and unavailable both disable the input, but only the first one
    * is worth explaining: a greyed out box with no reason next to it reads as a
    * bug, which is why the field says so and points at the hint below the grid.
+   *
+   * Text rather than `type="number"`, for the reason given on `wg-actions`.
+   * A field that can go negative keeps the full keyboard: the decimal keypad
+   * on a phone has no minus key.
    */
-  private _numberRow(
-    entityId: string | undefined,
-    unit: string,
-    derived: boolean,
-    step = 0.1,
-  ) {
+  private _numberRow(entityId: string | undefined, unit: string, derived: boolean) {
     if (!entityId || !this.hass) {
       return nothing;
     }
@@ -86,6 +84,12 @@ export class WgGoalEditor extends LitElement {
     if (!state) {
       return nothing;
     }
+    const signed = (attributeOf<number>(this.hass, entityId, "min") ?? 0) < 0;
+    // A number input used to drop "unknown" and "unavailable" on its own; a
+    // text field would show them.
+    const current = Number(state.state);
+    const shown =
+      state.state.trim() !== "" && Number.isFinite(current) ? formatInput(this.hass, current) : "";
     return html`<label class="field">
       <span class="muted">
         ${entityLabel(this.hass, entityId, this.model?.context.name)}
@@ -95,11 +99,11 @@ export class WgGoalEditor extends LitElement {
       </span>
       <span class="input">
         <input
-          type="number"
-          step=${step}
-          min=${attributeOf<number>(this.hass, entityId, "min") ?? 0}
-          max=${attributeOf<number>(this.hass, entityId, "max") ?? 1000}
-          .value=${state.state === "unknown" ? "" : state.state}
+          class="number"
+          type="text"
+          inputmode=${signed ? "text" : "decimal"}
+          autocomplete="off"
+          .value=${shown}
           ?disabled=${derived || state.state === "unavailable"}
           aria-describedby=${derived ? "derived" : nothing}
           @change=${(event: Event) =>
@@ -132,8 +136,8 @@ export class WgGoalEditor extends LitElement {
   }
 
   private async _setNumber(entityId: string, raw: string): Promise<void> {
-    const value = Number(raw.replace(",", "."));
-    if (!this.hass || !Number.isFinite(value)) {
+    const value = parseDecimal(raw);
+    if (!this.hass || value === null) {
       return;
     }
     try {

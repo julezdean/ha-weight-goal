@@ -827,11 +827,10 @@ Headless Chrome rather than any browser at hand is deliberate: the chart draws
 nothing until its `ResizeObserver` reports a width, and a tab that never becomes
 visible never reports one.
 
-One thing does not follow the page: `<input type="date">` and
-`<input type="number">` in the goal editor are rendered by the browser in the
-operating system's region format, not in `?lang`. Neither `?lang` nor Chrome's
-`--lang` changes them — on a machine set to a German region the date fields read
-`31.07.2026` even though `navigator.language` is `en-GB`. A screenshot showing
+One thing does not follow the page: `<input type="date">` is rendered by the
+browser in the operating system's region format, not in `?lang`. Neither
+`?lang` nor Chrome's `--lang` changes it — on a machine set to a German region
+the date fields read `31.07.2026` even though `navigator.language` is `en-GB`. A screenshot showing
 the goal editor is therefore reproducible on one machine, not across machines.
 
 ## License

@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { attributeOf } from "../lib/format";
+import { formatInput, parseDecimal } from "../lib/format";
 import { todayInZone } from "../lib/plan";
 import { localize, translator } from "../localize";
 import { sharedStyles } from "../shared-styles";
@@ -19,6 +19,12 @@ import type { HomeAssistant } from "../types";
  * missed reading would be a feature nobody finds. That is why it is on by
  * default, and `show_record_date` only lets a dashboard that never backdates --
  * a scale writes the readings, the card confirms them -- take the field away.
+ *
+ * The weight is a text field with a decimal keypad, not `type="number"`. A
+ * number input reports an empty value for anything it cannot parse, and on a
+ * German iPhone that is "73," the moment the comma is typed; rendering that
+ * empty value back wiped the field under the user's thumb. Parsing is the
+ * card's job instead, and it takes both separators.
  */
 @customElement("wg-actions")
 export class WgActions extends LitElement {
@@ -62,10 +68,8 @@ export class WgActions extends LitElement {
       return nothing;
     }
 
-    const min = attributeOf<number>(this.hass, entities.manual_weight, "min") ?? 20;
-    const max = attributeOf<number>(this.hass, entities.manual_weight, "max") ?? 300;
     const shown =
-      this._draft ?? (model.manualWeight === null ? "" : String(model.manualWeight));
+      this._draft ?? (model.manualWeight === null ? "" : formatInput(this.hass, model.manualWeight));
     const today = todayInZone(this.hass.config?.time_zone);
     const day = this._day(model, today);
 
@@ -94,11 +98,9 @@ export class WgActions extends LitElement {
                 : nothing}
               <input
                 class="weight"
-                type="number"
+                type="text"
                 inputmode="decimal"
-                step="0.1"
-                min=${min}
-                max=${max}
+                autocomplete="off"
                 .value=${shown}
                 aria-label=${t("actions.weight_input", { unit: model.unit })}
                 placeholder=${model.unit}
@@ -160,8 +162,8 @@ export class WgActions extends LitElement {
   }
 
   private _hasDraft(model: GoalModel): boolean {
-    if (this._draft !== null && this._draft !== "") {
-      return true;
+    if (this._draft !== null) {
+      return parseDecimal(this._draft) !== null;
     }
     return model.manualPending;
   }
@@ -194,8 +196,8 @@ export class WgActions extends LitElement {
       return;
     }
     const raw = this._draft ?? String(model.manualWeight ?? "");
-    const weight = Number(raw.replace(",", "."));
-    if (!Number.isFinite(weight)) {
+    const weight = parseDecimal(raw);
+    if (weight === null) {
       this._error = localize(this.hass, "actions.enter_number");
       return;
     }

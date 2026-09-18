@@ -46,7 +46,11 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
         {
           entity_id: entityId,
           state,
-          attributes: { friendly_name: `Julien ${entityId.split(".")[1]}`, min: 20, max: 300 },
+          attributes: {
+            friendly_name: `Julien ${entityId.split(".")[1]}`,
+            // The rate is the one goal field that goes negative.
+            ...(entityId === ENTITIES.rate_per_week ? { min: -5, max: 5 } : { min: 20, max: 300 }),
+          },
           last_changed: "",
           last_updated: "",
         },
@@ -114,7 +118,7 @@ describe("the derived goal field", () => {
     const el = await render("wg-goal-editor", { hass, model, open: true });
     const root = el.shadowRoot!;
 
-    const rate = root.querySelector<HTMLInputElement>('input[step="0.01"]')!;
+    const rate = [...root.querySelectorAll<HTMLInputElement>("input.number")][2];
     expect(rate.disabled).toBe(true);
     expect(root.textContent).toContain("calculated");
 
@@ -127,7 +131,7 @@ describe("the derived goal field", () => {
   it("follows the mode, so rate mode locks the target instead", async () => {
     const { hass, model } = build("rate");
     const root = (await render("wg-goal-editor", { hass, model, open: true })).shadowRoot!;
-    const inputs = root.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    const inputs = root.querySelectorAll<HTMLInputElement>("input.number");
     const [start, target, rate] = inputs;
 
     expect(start.disabled).toBe(false);
@@ -140,7 +144,7 @@ describe("the derived goal field", () => {
     // derived would lock the wrong one.
     const { hass, model } = build(null);
     const root = (await render("wg-goal-editor", { hass, model, open: true })).shadowRoot!;
-    for (const input of root.querySelectorAll<HTMLInputElement>('input[type="number"]')) {
+    for (const input of root.querySelectorAll<HTMLInputElement>("input.number")) {
       expect(input.disabled).toBe(false);
     }
     expect(root.querySelector("#derived")).toBeNull();
@@ -203,7 +207,7 @@ describe("the two actions", () => {
       model,
       showRecord: false,
     })).shadowRoot!;
-    expect(root.querySelector('input[type="number"]')).toBeNull();
+    expect(root.querySelector("input.weight")).toBeNull();
     expect(save(root)).toBeUndefined();
     expect(restart(root)).toBeTruthy();
   });
@@ -254,7 +258,7 @@ describe("the two actions", () => {
       field.value = day;
       field.dispatchEvent(new Event("input"));
     }
-    const field = root.querySelector('input[type="number"]') as HTMLInputElement;
+    const field = root.querySelector("input.weight") as HTMLInputElement;
     field.value = weight;
     field.dispatchEvent(new Event("input"));
 
@@ -329,7 +333,7 @@ describe("the two actions", () => {
     const day = root.querySelector('input[type="date"]') as HTMLInputElement;
     day.value = "2026-09-10";
     day.dispatchEvent(new Event("input"));
-    const weight = root.querySelector('input[type="number"]') as HTMLInputElement;
+    const weight = root.querySelector("input.weight") as HTMLInputElement;
     weight.value = "76.0";
     weight.dispatchEvent(new Event("input"));
     await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
@@ -367,7 +371,7 @@ describe("the two actions", () => {
     ).shadowRoot!;
     expect(root.querySelector('input[type="date"]')).toBeNull();
     // The weight and the button stay: only the day went away.
-    expect(root.querySelector('input[type="number"]')).not.toBeNull();
+    expect(root.querySelector("input.weight")).not.toBeNull();
   });
 
   it("records today even when the entity holds another day", async () => {
@@ -385,7 +389,7 @@ describe("the two actions", () => {
     });
     const root = el.shadowRoot!;
 
-    const weight = root.querySelector('input[type="number"]') as HTMLInputElement;
+    const weight = root.querySelector("input.weight") as HTMLInputElement;
     weight.value = "74.2";
     weight.dispatchEvent(new Event("input"));
     await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
@@ -425,5 +429,131 @@ describe("the two actions", () => {
       model: { ...model, startTodayArmed: true },
     })).shadowRoot!;
     expect(root.querySelector(".hint")!.textContent).toContain("Startgewicht");
+  });
+});
+
+describe("typing a weight with a comma", () => {
+  // A German iPhone types "73," on the way to "73,2". A number input reports
+  // that as an empty value, and rendering it back wiped the field.
+  async function typeInto(el: HTMLElement, field: HTMLInputElement, text: string) {
+    field.value = text;
+    field.dispatchEvent(new Event("input"));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+  }
+
+  const save = (root: ShadowRoot) =>
+    [...root.querySelectorAll("button.control")].find((b) =>
+      b.textContent?.includes("Save reading"),
+    ) as HTMLButtonElement;
+
+  it("keeps the field while the number is unfinished", async () => {
+    const { hass, model } = build("target");
+    const el = await render("wg-actions", { hass, model });
+    const root = el.shadowRoot!;
+    const field = root.querySelector("input.weight") as HTMLInputElement;
+    // happy-dom does not empty a number input on "73," the way a browser does,
+    // so the value check below alone would pass with the bug in place. The
+    // type is what keeps the browser from throwing the text away.
+    expect(field.type).toBe("text");
+
+    await typeInto(el, field, "73");
+    await typeInto(el, field, "73,");
+    expect(field.value).toBe("73,");
+    // "73," reads as 73, and a reading of 73 is what the thumb meant so far.
+    expect(save(root).disabled).toBe(false);
+
+    await typeInto(el, field, "73,2");
+    expect(field.value).toBe("73,2");
+  });
+
+  it("records the comma as a decimal point", async () => {
+    const { hass, model } = build("target");
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const el = await render("wg-actions", { hass: withService, model });
+    const root = el.shadowRoot!;
+    await typeInto(el, root.querySelector("input.weight") as HTMLInputElement, "73,2");
+
+    save(root).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toHaveBeenCalledWith(
+      "weight_goal",
+      "record_weight",
+      { weight: 73.2 },
+      expect.anything(),
+    );
+  });
+
+  it("offers nothing to save for text that is not a number", async () => {
+    const { hass, model } = build("target");
+    const el = await render("wg-actions", { hass, model });
+    const root = el.shadowRoot!;
+    await typeInto(el, root.querySelector("input.weight") as HTMLInputElement, "7a");
+    expect(save(root).disabled).toBe(true);
+  });
+
+  it("writes a goal field typed with a comma", async () => {
+    const { hass, model } = build(null);
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const root = (
+      await render("wg-goal-editor", { hass: withService, model, open: true })
+    ).shadowRoot!;
+    const start = root.querySelector("input.number") as HTMLInputElement;
+
+    start.value = "80,5";
+    start.dispatchEvent(new Event("change"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toHaveBeenCalledWith(
+      "number",
+      "set_value",
+      { value: 80.5 },
+      { entity_id: ENTITIES.start_weight },
+    );
+  });
+
+  it("does not turn a cleared goal field into zero", async () => {
+    // Number("") is 0, and a start weight of zero is not what an empty box means.
+    const { hass, model } = build(null);
+    const calls = vi.fn(() => Promise.resolve({}));
+    const withService = { ...hass, callService: calls } as typeof hass;
+    const root = (
+      await render("wg-goal-editor", { hass: withService, model, open: true })
+    ).shadowRoot!;
+    const start = root.querySelector("input.number") as HTMLInputElement;
+
+    start.value = "";
+    start.dispatchEvent(new Event("change"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it("keeps the minus key for a field that can go negative", async () => {
+    const { hass, model } = build(null);
+    const root = (await render("wg-goal-editor", { hass, model, open: true })).shadowRoot!;
+    const [start, , rate] = root.querySelectorAll<HTMLInputElement>("input.number");
+    expect(start.getAttribute("inputmode")).toBe("decimal");
+    expect(rate.getAttribute("inputmode")).toBe("text");
+  });
+});
+
+describe("goal fields in the instance's language", () => {
+  it("show the separator that can be typed back", async () => {
+    const { hass, model } = build(null);
+    const german = { ...hass, locale: { language: "de" } } as typeof hass;
+    const root = (await render("wg-goal-editor", { hass: german, model, open: true })).shadowRoot!;
+    const [, , rate] = root.querySelectorAll<HTMLInputElement>("input.number");
+    expect(rate.value).toBe("-0,38");
+  });
+
+  it("leave an unavailable field empty rather than spelling it out", async () => {
+    const { hass, model } = build(null);
+    hass.states[ENTITIES.start_weight] = {
+      ...hass.states[ENTITIES.start_weight],
+      state: "unavailable",
+    };
+    const root = (await render("wg-goal-editor", { hass, model, open: true })).shadowRoot!;
+    const start = root.querySelector<HTMLInputElement>("input.number")!;
+    expect(start.value).toBe("");
   });
 });

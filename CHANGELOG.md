@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A weight typed with a comma stays in the field. On a German iPhone the
+  keypad offers a comma, and the moment it was typed the card emptied the
+  field: a number input reports "73," as no value at all, and the card wrote
+  that back. The weight and the goal fields are text fields with a decimal
+  keypad now, take a comma or a point, and show their value with the
+  separator of the Home Assistant language.
+- Clearing a goal field no longer writes zero. An empty field used to be read
+  as 0 and sent to the entity on leaving it.
+
 ## [0.8.0] - 2026-09-18
 
 ### Changed

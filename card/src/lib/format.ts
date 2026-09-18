@@ -79,6 +79,31 @@ export function localeOf(hass: HomeAssistant | undefined): string {
   return hass?.locale?.language || hass?.language || "en";
 }
 
+/**
+ * A number as someone typed it: comma or point, as the keyboard of their
+ * locale offers. `null` for anything else, the empty string included --
+ * `Number("")` is 0, and a cleared field must not write a zero.
+ */
+export function parseDecimal(raw: string): number | null {
+  const text = raw.trim();
+  if (!/^[+-]?(\d+([.,]\d*)?|[.,]\d+)$/.test(text)) {
+    return null;
+  }
+  return Number(text.replace(",", "."));
+}
+
+/**
+ * A value to put into a field someone edits: the separator of the instance's
+ * language, so what is shown can be typed back the same way, and no grouping,
+ * which `parseDecimal` would refuse.
+ */
+export function formatInput(hass: HomeAssistant | undefined, value: number): string {
+  return new Intl.NumberFormat(localeOf(hass), {
+    maximumFractionDigits: 3,
+    useGrouping: false,
+  }).format(value);
+}
+
 export function formatNumber(
   hass: HomeAssistant | undefined,
   value: number | null,
