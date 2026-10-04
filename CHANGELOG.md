@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-04
+
 ### Fixed
 
 - The chart showed only the last three months or so, however long the goal.
@@ -25,8 +27,6 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - `import_history` accepts at most 730 days, the age the history keeps.
-  Readings dropped by the old cap can be brought back with it from the long
-  term statistics, as one averaged value per day.
 
 ## [0.8.1] - 2026-09-18
 
@@ -292,6 +292,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.9.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.9.0
 [0.8.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.1
 [0.8.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.0
 [0.7.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.7.0
