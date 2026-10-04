@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The chart showed only the last three months or so, however long the goal.
+  The internal history was capped at 400 readings, and every time the weight
+  sensor came back from unavailable or Home Assistant restarted, the
+  unchanged value was recorded as a new weigh-in. One day could take a dozen
+  places, and 400 places lasted about 90 days. A sensor reading that only
+  repeats the previous one is no longer recorded, and the history is now
+  limited by age instead of count: two years, with a ceiling of 5000 readings
+  that only a source reporting far more often than a scale would reach.
+- Repeated sensor readings already in the history are removed on start up.
+  They inflated the weight of the days they fell on in the trend and the
+  projection.
+- A sensor reading that was deleted or ignored no longer comes back on the
+  next restart.
+
+### Changed
+
+- `import_history` accepts at most 730 days, the age the history keeps.
+  Readings dropped by the old cap can be brought back with it from the long
+  term statistics, as one averaged value per day.
+
 ## [0.8.1] - 2026-09-18
 
 ### Fixed

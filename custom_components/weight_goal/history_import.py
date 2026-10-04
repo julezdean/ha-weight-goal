@@ -1,6 +1,6 @@
 """Import past weights from the recorder into the internal history.
 
-The internal ring buffer normally fills up as measurements arrive, which means
+The internal history normally fills up as measurements arrive, which means
 the trend and the projection stay unavailable for the first days after setup.
 This module fills it from data Home Assistant already has.
 
@@ -25,15 +25,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, KEY_WEIGHT, MAX_MEASUREMENTS, SOURCE_IMPORT
+from .const import DOMAIN, KEY_WEIGHT, MAX_MEASUREMENTS, RETENTION_DAYS, SOURCE_IMPORT
 
 if TYPE_CHECKING:
     from .manager import WeightGoalManager
 
 _LOGGER = logging.getLogger(__name__)
 
-#: Statistics older than this are not worth importing for a weight goal.
-MAX_IMPORT_DAYS = 3650
+#: Anything older would be dropped by the retention the moment it arrived.
+MAX_IMPORT_DAYS = RETENTION_DAYS
 
 
 def _collect_states(

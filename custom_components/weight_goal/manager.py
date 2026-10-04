@@ -1,6 +1,6 @@
 """Runtime manager for a single Road to Weight Goal config entry.
 
-The manager owns everything that is not an entity: the measurement ring buffer,
+The manager owns everything that is not an entity: the measurement history,
 the timers, the derived values and the state machine. Entities read from it and
 write through it.
 
@@ -78,6 +78,7 @@ from .const import (
     MAX_PROJECTION_DAYS,
     MODE_RATE,
     PROJECTION_WINDOW_DAYS,
+    RETENTION_DAYS,
     SOURCE_IMPORT,
     SOURCE_MANUAL,
     SOURCE_SENSOR,
@@ -145,6 +146,28 @@ class StoredState:
     goal_ended_fired: bool = False
     overdue_fired_for: str | None = None
     last_rollover: str | None = None
+    last_source_entity: str | None = None
+    last_source_weight: float | None = None
+
+
+def _without_repeats(measurements: list[Measurement]) -> list[Measurement]:
+    """Drop sensor readings that only repeat the previous sensor reading.
+
+    A sensor that keeps its value does not report again, so the same number
+    twice in a row can only mean it came back from unavailable or Home
+    Assistant restarted; neither is a weigh-in. Older versions recorded both,
+    and one day could take a dozen places in the history. Manual and imported
+    readings are left alone, they are not echoes of anything.
+    """
+    kept: list[Measurement] = []
+    previous: float | None = None
+    for item in measurements:
+        if item.source == SOURCE_SENSOR:
+            if previous is not None and abs(item.weight - previous) < 1e-9:
+                continue
+            previous = item.weight
+        kept.append(item)
+    return kept
 
 
 class WeightGoalManager:
@@ -163,6 +186,7 @@ class WeightGoalManager:
         self._timers: dict[str, CALLBACK_TYPE] = {}
         self._applying_options = False
         self._start_today_armed_until: datetime | None = None
+        self._ceiling_logged = False
 
     # ------------------------------------------------------------------
     # Options access
@@ -299,7 +323,7 @@ class WeightGoalManager:
 
     @property
     def measurements(self) -> list[Measurement]:
-        """The internal measurement ring buffer, oldest first."""
+        """The internal measurement history, oldest first."""
         return list(self._state.measurements)
 
     @property
@@ -632,7 +656,7 @@ class WeightGoalManager:
         entry = Measurement(stamp, weight, source)
         self._state.measurements.append(entry)
         self._state.measurements.sort(key=lambda m: m.timestamp)
-        del self._state.measurements[:-MAX_MEASUREMENTS]
+        self._trim()
         if self._state.measurements and self._state.measurements[-1] is entry:
             # Only a reading that is now the newest one ends the silence. A
             # reading entered for an earlier day leaves the gap where it is,
@@ -679,7 +703,7 @@ class WeightGoalManager:
         source: str = SOURCE_IMPORT,
         replace: bool = False,
     ) -> int:
-        """Merge historical points into the ring buffer.
+        """Merge historical points into the internal history.
 
         Returns the number of points that were actually added. Existing
         measurements win on a collision unless ``replace`` is set, so running an
@@ -701,9 +725,26 @@ class WeightGoalManager:
             existing[key] = Measurement(stamp, weight, source)
             added += 1
 
-        merged = sorted(existing.values(), key=lambda m: m.timestamp)
-        self._state.measurements = merged[-MAX_MEASUREMENTS:]
+        self._state.measurements = sorted(existing.values(), key=lambda m: m.timestamp)
+        self._trim()
         return added
+
+    def _trim(self) -> None:
+        """Drop what is older than the retention, and enforce the ceiling."""
+        cutoff = dt_util.utcnow() - timedelta(days=RETENTION_DAYS)
+        kept = [m for m in self._state.measurements if m.timestamp >= cutoff]
+        if len(kept) > MAX_MEASUREMENTS:
+            if not self._ceiling_logged:
+                _LOGGER.warning(
+                    "%s: more than %d measurements in %d days, dropping the oldest. "
+                    "The source probably reports far more often than a scale would",
+                    self.entry.title,
+                    MAX_MEASUREMENTS,
+                    RETENTION_DAYS,
+                )
+                self._ceiling_logged = True
+            kept = kept[-MAX_MEASUREMENTS:]
+        self._state.measurements = kept
 
     async def async_delete_measurement(
         self, moment: datetime, tolerance: timedelta
@@ -883,8 +924,15 @@ class WeightGoalManager:
                 if m is not None
             ]
             measurements.sort(key=lambda m: m.timestamp)
+            cleaned = _without_repeats(measurements)
+            if len(cleaned) < len(measurements):
+                _LOGGER.info(
+                    "%s: dropped %d repeated sensor readings from the history",
+                    self.entry.title,
+                    len(measurements) - len(cleaned),
+                )
             self._state = StoredState(
-                measurements=measurements[-MAX_MEASUREMENTS:],
+                measurements=cleaned,
                 manual_weight=raw.get("manual_weight"),
                 manual_pending=bool(raw.get("manual_pending")),
                 manual_date=raw.get("manual_date"),
@@ -893,7 +941,24 @@ class WeightGoalManager:
                 goal_ended_fired=bool(raw.get("goal_ended_fired")),
                 overdue_fired_for=raw.get("overdue_fired_for"),
                 last_rollover=raw.get("last_rollover"),
+                last_source_entity=raw.get("last_source_entity"),
+                last_source_weight=raw.get("last_source_weight"),
             )
+            self._trim()
+            if "last_source_entity" not in raw:
+                # Stored by an older version, which did not remember what the
+                # sensor last said. Its newest sensor reading is the same thing.
+                last = next(
+                    (
+                        m
+                        for m in reversed(self._state.measurements)
+                        if m.source == SOURCE_SENSOR
+                    ),
+                    None,
+                )
+                if last is not None and self.source_entity:
+                    self._state.last_source_entity = self.source_entity
+                    self._state.last_source_weight = last.weight
 
         # A missing normalisation can only happen after a manual edit of the
         # options; fix it up front so the entities never show an inconsistent
@@ -1005,9 +1070,21 @@ class WeightGoalManager:
                 state.state,
             )
             return
-        await self.async_record_weight(
+        if (
+            self._state.last_source_entity == state.entity_id
+            and self._state.last_source_weight is not None
+            and abs(self._state.last_source_weight - weight) < 1e-9
+        ):
+            # The same value again is not a new weigh-in: the sensor came back
+            # from unavailable, or Home Assistant started and read it once more.
+            # Remembered per sensor rather than looked up in the history, so a
+            # reading that was deleted or ignored does not return with it.
+            return
+        if await self.async_record_weight(
             weight, timestamp=state.last_changed, source=SOURCE_SENSOR
-        )
+        ):
+            self._state.last_source_entity = state.entity_id
+            self._state.last_source_weight = weight
 
     # ------------------------------------------------------------------
     # Timers
@@ -1200,6 +1277,8 @@ class WeightGoalManager:
                 "goal_ended_fired": self._state.goal_ended_fired,
                 "overdue_fired_for": self._state.overdue_fired_for,
                 "last_rollover": self._state.last_rollover,
+                "last_source_entity": self._state.last_source_entity,
+                "last_source_weight": self._state.last_source_weight,
             }
         )
 

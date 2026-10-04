@@ -52,9 +52,16 @@ DEFAULT_RECALCULATION_INTERVAL: Final = 0
 
 # --- Internal tuning ----------------------------------------------------------
 
-#: Ring buffer size for the internal measurement history. Only used to compute
-#: the trend and the projection; the long term history lives in the recorder.
-MAX_MEASUREMENTS: Final = 400
+#: How long the internal history keeps a measurement. The card draws the chart
+#: from it, so it has to cover a whole goal, not just the trend window. Fixed
+#: rather than tied to the goal: a start date can be moved, a dropped reading
+#: cannot come back.
+RETENTION_DAYS: Final = 730
+
+#: Safety ceiling on the internal history. Never reached by one weigh-in a day
+#: over ``RETENTION_DAYS``; it only stops a source that reports every few
+#: seconds from growing the storage file without bound. Hitting it is logged.
+MAX_MEASUREMENTS: Final = 5000
 
 #: Window used for the projection. Deliberately independent of
 #: ``CONF_TREND_WINDOW_DAYS`` so that switching the trend sensor off does not

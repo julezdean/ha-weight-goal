@@ -237,6 +237,9 @@ weigh-in but only go back as far as your recorder keeps them, ten days by
 default. Long term statistics reach back much further but contribute one
 averaged value per day.
 
+The internal history keeps two years, so `days` goes up to 730; anything older
+would be dropped again as soon as it arrived.
+
 Running it twice changes nothing: existing measurements win. Weights you
 entered by hand are never overwritten, not even with `replace: true`. Values
 outside the plausible range are skipped. The largest accepted change is
@@ -347,7 +350,7 @@ distinction does not depend on colour alone.
 
 | `source` | What you get |
 | --- | --- |
-| `measurements` (default) | `weight_goal.get_measurements`, so exactly the readings the status, the trend and the projection are based on. Readings you deleted or ignored are gone. Capped at the internal history of 400 readings. |
+| `measurements` (default) | `weight_goal.get_measurements`, so exactly the readings the status, the trend and the projection are based on. Readings you deleted or ignored are gone. Reaches back two years. |
 | `history` | The recorder history of `sensor.<name>_weight`. Reaches back as far as your recorder keeps data and is not capped, but still contains readings you deleted, because the recorder keeps its own copy. Older ranges are aggregated, see [Known limitations](#known-limitations). |
 
 ### Options
@@ -620,6 +623,16 @@ instead.
   cannot be written retroactively. `import_history` with `write_statistics`
   backfills long term statistics, which is what graphs read for older ranges,
   but the short term view still starts on the day you set the integration up.
+- **The internal history keeps two years.** Older readings are dropped from
+  it, and with them from the trend, the projection and the default chart
+  source. The recorder and the long term statistics are not affected.
+- **A sensor reading the same weight twice counts once.** A weight sensor that
+  keeps its value does not report again, so the same number twice in a row can
+  only be the sensor coming back from unavailable or Home Assistant restarting.
+  The integration ignores that echo. The exception is a scale that really goes
+  unavailable between two weigh-ins and shows exactly the same weight both
+  times: the second weigh-in is not recorded either. Record it by hand if the
+  overdue reminder matters to you.
 - **Deleting a measurement does not clear the graph.** `delete_measurement` and
   `ignore_last_measurement` remove a reading from the trend, the projection and
   the status. The recorder keeps its own copy, so the point stays in the short
