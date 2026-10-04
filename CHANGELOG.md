@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-04
+
 ### Fixed
 
 - `import_history` no longer fills the history with the scale repeating
@@ -316,6 +318,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.10.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.10.0
 [0.9.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.9.0
 [0.8.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.1
 [0.8.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.0
