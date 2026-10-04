@@ -137,4 +137,15 @@ describe("resolveBadges", () => {
     });
     expect(resolveBadges(hass, model, ["source"])[0].text).toBe("From the scale");
   });
+
+  it("says when the current reading is only a daily average", () => {
+    const { hass, model } = build({
+      "sensor.julien_weight": { state: "78.4", unit: "kg" },
+    });
+    const [badge] = resolveBadges(hass, { ...model, measurementSource: "statistics" }, [
+      "source",
+    ]);
+    expect(badge.text).toBe("Daily average");
+    expect(badge.icon).toBe("mdi:chart-bell-curve-cumulative");
+  });
 });

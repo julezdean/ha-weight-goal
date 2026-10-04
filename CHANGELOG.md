@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `import_history` no longer fills the history with the scale repeating
+  itself. The recorded states it reads contain every reconnect of the scale
+  as a separate state, and each became a weigh-in; one day could hold
+  eighteen copies of the same weight.
+- `import_history` no longer adds a daily average next to real readings. The
+  average sat at midnight and could be half a kilo off the readings of the
+  same day, which showed as a spike in the chart. A daily average is now only
+  added for a day without a reading from the scale, an import or an
+  automation, never for today, and not when it merely repeats the value
+  before it.
+- Both kinds of leftovers from earlier imports are removed on start up.
+- Imported readings keep the precision the scale reported. They were rounded
+  to ten grams, so an echo of a live 72.658 came in as 72.66 and counted as a
+  new reading.
+
+### Added
+
+- Daily averages from the statistics carry their own source, `statistics`,
+  and the card's `source` badge shows them as "Daily average". Averages
+  imported by earlier versions are recognised once, by sitting exactly on
+  local midnight in the current time zone.
+
 ## [0.9.0] - 2026-10-04
 
 ### Fixed

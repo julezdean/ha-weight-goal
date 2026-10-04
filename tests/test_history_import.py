@@ -21,6 +21,7 @@ from custom_components.weight_goal.const import (
     SERVICE_IMPORT_HISTORY,
     SOURCE_IMPORT,
     SOURCE_MANUAL,
+    SOURCE_STATISTICS,
 )
 
 from .conftest import make_entry
@@ -420,3 +421,136 @@ async def test_statistics_are_grouped_per_hour(
     assert rows[0]["mean"] == 80.5
     assert rows[0]["min"] == 80.0
     assert rows[0]["max"] == 81.0
+
+
+async def _import_with(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    entry: MockConfigEntry,
+    states: list[tuple[datetime, float]],
+    means: list[tuple[datetime, float]],
+) -> dict:
+    """Run the import against fixed recorder answers.
+
+    Writing long term statistics into the test recorder takes hours of compiled
+    buckets; what is under test here is what the import does with them.
+    """
+    from custom_components.weight_goal import history_import
+
+    monkeypatch.setattr(history_import, "_collect_states", lambda *_: list(states))
+    monkeypatch.setattr(history_import, "_collect_statistics", lambda *_: list(means))
+    response = await hass.services.async_call(
+        DOMAIN,
+        SERVICE_IMPORT_HISTORY,
+        # No live sensor, so nothing but the import writes to the history.
+        {**ANCHOR, ATTR_DAYS: 30, CONF_SOURCE_ENTITY: "sensor.old_scale"},
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+    return response["entries"][entry.entry_id]
+
+
+def _midnight(days_ago: int) -> datetime:
+    return NOW.replace(hour=0) - timedelta(days=days_ago)
+
+
+async def test_import_drops_the_sensor_repeating_itself(
+    recorder_mock, hass: HomeAssistant, frozen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recorded states contain every reconnect; only real changes are weigh-ins."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    day = NOW - timedelta(days=5)
+
+    report = await _import_with(
+        hass,
+        monkeypatch,
+        entry,
+        [
+            (day, 81.0),
+            (day + timedelta(hours=2), 81.0),
+            (day + timedelta(days=1), 80.6),
+            (day + timedelta(days=1, hours=5), 80.6),
+            (day + timedelta(days=1, hours=9), 80.6),
+        ],
+        [],
+    )
+
+    assert [m.weight for m in entry.runtime_data.measurements] == [81.0, 80.6]
+    assert report["imported"] == 2
+    assert report["dropped"] == 3
+
+
+async def test_daily_means_only_fill_days_without_readings(
+    recorder_mock, hass: HomeAssistant, frozen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A day with a reading needs no mean, a still day is no weigh-in."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _import_with(
+        hass,
+        monkeypatch,
+        entry,
+        [(_midnight(4) + timedelta(hours=7), 80.8)],
+        [
+            (_midnight(6), 81.4),
+            (_midnight(5), 81.1),
+            (_midnight(4), 80.95),  # the day has its own reading
+            (_midnight(3), 80.8),  # unchanged since that reading
+            (_midnight(2), 80.5),
+            (_midnight(0), 80.2),  # today, still running
+        ],
+    )
+
+    assert [
+        (m.weight, m.source) for m in entry.runtime_data.measurements
+    ] == [
+        (81.4, SOURCE_STATISTICS),
+        (81.1, SOURCE_STATISTICS),
+        (80.8, SOURCE_IMPORT),
+        (80.5, SOURCE_STATISTICS),
+    ]
+
+
+async def test_a_manual_entry_leaves_room_for_a_daily_mean(
+    recorder_mock, hass: HomeAssistant, frozen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Typing a weight does not say the scale was silent that day."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    manual = _midnight(3) + timedelta(hours=8)
+    await entry.runtime_data.async_record_weight(80.0, timestamp=manual)
+
+    await _import_with(hass, monkeypatch, entry, [], [(_midnight(3), 80.4)])
+
+    assert [
+        (m.weight, m.source) for m in entry.runtime_data.measurements
+    ] == [(80.4, SOURCE_STATISTICS), (80.0, SOURCE_MANUAL)]
+
+
+async def test_import_keeps_the_precision_of_the_scale(
+    recorder_mock, hass: HomeAssistant, frozen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A recorded echo of a live reading is recognised to the gram."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    live = NOW - timedelta(days=1)
+    await entry.runtime_data.async_record_weight(
+        72.658, timestamp=live, source="sensor"
+    )
+
+    await _import_with(
+        hass,
+        monkeypatch,
+        entry,
+        [(live, 72.658), (live + timedelta(hours=3), 72.658)],
+        [],
+    )
+
+    assert [m.weight for m in entry.runtime_data.measurements] == [72.658]

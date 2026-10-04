@@ -41,6 +41,7 @@ export const en = {
   "badge.source.sensor": "From the scale",
   "badge.source.service": "From an automation",
   "badge.source.import": "Imported",
+  "badge.source.statistics": "Daily average",
 
   "actions.save": "Save reading",
   "actions.restart": "Restart today",

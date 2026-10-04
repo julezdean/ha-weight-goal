@@ -173,4 +173,8 @@ SOURCE_MANUAL: Final = "manual"
 SOURCE_SENSOR: Final = "sensor"
 SOURCE_SERVICE: Final = "service"
 SOURCE_IMPORT: Final = "import"
+#: A daily mean from the long term statistics, imported for a day the recorder
+#: no longer has single readings for. Kept apart from ``import`` because it is
+#: not a weigh-in, and a reading for the same day always replaces it.
+SOURCE_STATISTICS: Final = "statistics"
 

@@ -11,7 +11,11 @@ Two sources are read and merged:
 * Long term statistics reach back much further but are aggregated, so an older
   day contributes one averaged value rather than the exact reading.
 
-States win wherever both cover the same moment.
+A daily mean is only kept for a day without a reading of its own, and only
+when it differs from the value before it; otherwise it is a day the sensor stood
+still. Recorded states are full of the sensor repeating itself after a
+reconnect, and those repeats are dropped as well. Both rules are
+``tidy_history`` in the manager, which also runs on every start.
 """
 
 from __future__ import annotations
@@ -25,7 +29,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, KEY_WEIGHT, MAX_MEASUREMENTS, RETENTION_DAYS, SOURCE_IMPORT
+from .const import (
+    DOMAIN,
+    KEY_WEIGHT,
+    MAX_MEASUREMENTS,
+    RETENTION_DAYS,
+    SOURCE_IMPORT,
+    SOURCE_MANUAL,
+    SOURCE_STATISTICS,
+)
 
 if TYPE_CHECKING:
     from .manager import WeightGoalManager
@@ -189,38 +201,54 @@ async def async_import_history(
         _collect_states, hass, entity_id, start, end
     )
 
-    # Merge on whole minutes; a recorded state always beats a daily average.
-    merged: dict[int, tuple[datetime, float]] = {}
-    for moment, value in statistics:
-        merged[int(moment.timestamp() // 60)] = (moment, value)
-    for moment, value in states:
-        merged[int(moment.timestamp() // 60)] = (moment, value)
-
     low, high = manager.min_weight, manager.max_weight
-    candidates = sorted(
-        (
-            (moment, round(value, 2))
-            for moment, value in merged.values()
-            if low <= value <= high
-        ),
-        key=lambda item: item[0],
+    zone = manager.zone
+    today = dt_util.now(zone).date()
+    # States keep the precision the scale reported: rounded, a state that only
+    # echoes a live reading of 72.658 would arrive as 72.66 and pass as new. A
+    # mean is rounded to the gram, which also turns the mean of a day the scale
+    # stood still back into exactly the value it stood at.
+    plausible_states = [(m, v) for m, v in states if low <= v <= high]
+    plausible_means = [(m, round(v, 3)) for m, v in statistics if low <= v <= high]
+    skipped = (
+        len(states) + len(statistics) - len(plausible_states) - len(plausible_means)
     )
-    skipped = len(merged) - len(candidates)
+    # Today's mean covers only part of the day; today's readings come live.
+    plausible_means = [
+        (m, v) for m, v in plausible_means if m.astimezone(zone).date() < today
+    ]
 
-    imported = manager.merge_measurements(
-        candidates, source=SOURCE_IMPORT, replace=replace
-    )
+    before = {id(m) for m in manager.measurements}
+    # States first: on the same minute, an existing reading or a state always
+    # beats a daily mean, whatever ``replace`` says.
+    manager.merge_measurements(plausible_states, source=SOURCE_IMPORT, replace=replace)
+    manager.merge_measurements(plausible_means, source=SOURCE_STATISTICS)
+    dropped = manager.tidy()
+    history = manager.measurements
+    imported = sum(1 for m in history if id(m) not in before)
     await manager.async_refresh(fire_events=False)
 
-    written = _write_statistics(manager, candidates) if write_statistics else 0
+    written = (
+        _write_statistics(
+            manager,
+            [
+                (m.timestamp, m.weight)
+                for m in history
+                if m.timestamp >= start and m.source != SOURCE_MANUAL
+            ],
+        )
+        if write_statistics
+        else 0
+    )
 
     report = {
         "source_entity": entity_id,
         "from_states": len(states),
         "from_statistics": len(statistics),
         "skipped_implausible": skipped,
+        "dropped": dropped,
         "imported": imported,
-        "total": len(manager.measurements),
+        "total": len(history),
         "statistics_written": written,
     }
     _LOGGER.info("%s: imported history from %s: %s", manager.entry.title, entity_id, report)

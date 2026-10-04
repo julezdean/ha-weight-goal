@@ -16,8 +16,10 @@ from custom_components.weight_goal.const import (
     CONF_SOURCE_ENTITY,
     DOMAIN,
     RETENTION_DAYS,
+    SOURCE_IMPORT,
     SOURCE_MANUAL,
     SOURCE_SENSOR,
+    SOURCE_STATISTICS,
     STORAGE_VERSION,
 )
 
@@ -176,6 +178,51 @@ async def test_repeats_stored_by_an_older_version_are_removed_on_load(
     assert len(stored["measurements"]) == 3
     assert stored["last_source_entity"] == "sensor.scale"
     assert stored["last_source_weight"] == 79.5
+
+
+def _utc(day: int, hour: int) -> datetime:
+    return datetime(2026, 2, day, hour, 0, tzinfo=dt_util.UTC)
+
+
+async def test_daily_means_imported_by_an_older_version_are_recognised(
+    hass: HomeAssistant, frozen, hass_storage
+) -> None:
+    """Imports at local midnight were daily means; they go where a day has readings.
+
+    Berlin, so local midnight is 23:00 UTC, the way it showed up in a real
+    history as 22:00 in summer.
+    """
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    hass_storage[f"{DOMAIN}.testentry"] = _stored(
+        (_utc(25, 6), 80.0, SOURCE_IMPORT),
+        (_utc(25, 9), 80.0, SOURCE_IMPORT),  # the sensor repeating itself
+        (_utc(25, 23), 80.3, SOURCE_IMPORT),  # mean of the 26th, which has a reading
+        (_utc(26, 7), 79.9, SOURCE_IMPORT),
+        (_utc(27, 23), 79.6, SOURCE_IMPORT),  # mean of the 28th, nothing else
+    )
+    entry = make_entry(hass)
+    await _setup(hass, entry)
+
+    assert _weights(entry) == [
+        (80.0, SOURCE_IMPORT),
+        (79.9, SOURCE_IMPORT),
+        (79.6, SOURCE_STATISTICS),
+    ]
+    assert hass_storage[f"{DOMAIN}.testentry"]["data"]["history_revision"] == 1
+
+
+async def test_daily_means_are_recognised_only_once(
+    hass: HomeAssistant, frozen, hass_storage
+) -> None:
+    """After the one-off fix, an import at midnight is taken at its word."""
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    hass_storage[f"{DOMAIN}.testentry"] = _stored(
+        (_utc(27, 23), 79.6, SOURCE_IMPORT), history_revision=1
+    )
+    entry = make_entry(hass)
+    await _setup(hass, entry)
+
+    assert _weights(entry) == [(79.6, SOURCE_IMPORT)]
 
 
 async def test_more_than_four_hundred_readings_are_kept(

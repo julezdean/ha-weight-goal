@@ -68,6 +68,7 @@ const SOURCE_ICON: Record<string, string> = {
   sensor: "mdi:scale-bathroom",
   service: "mdi:cog-outline",
   import: "mdi:database-import-outline",
+  statistics: "mdi:chart-bell-curve-cumulative",
 };
 
 function sourceBadge(
@@ -82,7 +83,8 @@ function sourceBadge(
     | "badge.source.manual"
     | "badge.source.sensor"
     | "badge.source.service"
-    | "badge.source.import";
+    | "badge.source.import"
+    | "badge.source.statistics";
   const text = SOURCE_ICON[source] ? localize(hass, key) : source;
   return {
     key: "source",

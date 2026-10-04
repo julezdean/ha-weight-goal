@@ -235,7 +235,16 @@ data:
 Two sources are read and merged. Recorded states carry every individual
 weigh-in but only go back as far as your recorder keeps them, ten days by
 default. Long term statistics reach back much further but contribute one
-averaged value per day.
+averaged value per day, stored with the source `statistics` so the card can
+tell it apart from a weigh-in.
+
+A daily average is only added for a day without a reading from the scale, an
+import or an automation; a weight entered by hand leaves room for one. A daily
+average equal to the value before it is skipped too, because that is a day the
+scale stood still. Recorded states are full of the scale repeating itself after
+a reconnect, and those repeats are skipped as well. Today never gets a daily
+average, its statistics are not complete yet. The response reports what was
+skipped in `dropped`.
 
 The internal history keeps two years, so `days` goes up to 730; anything older
 would be dropped again as soon as it arrived.

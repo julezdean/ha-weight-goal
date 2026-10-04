@@ -41,6 +41,7 @@ export const de: Record<TranslationKey, string> = {
   "badge.source.sensor": "Von der Waage",
   "badge.source.service": "Aus einer Automatisierung",
   "badge.source.import": "Importiert",
+  "badge.source.statistics": "Tagesmittel",
 
   "actions.save": "Messung speichern",
   "actions.restart": "Heute neu starten",

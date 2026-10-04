@@ -82,6 +82,8 @@ from .const import (
     SOURCE_IMPORT,
     SOURCE_MANUAL,
     SOURCE_SENSOR,
+    SOURCE_SERVICE,
+    SOURCE_STATISTICS,
     STATUS_AHEAD,
     STATUS_BEHIND,
     STATUS_ENDED,
@@ -102,6 +104,10 @@ from .helpers import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+#: Bumped when stored measurements need a one-off fix on load. 1: daily means
+#: imported before 0.10.0 get their own source, see ``mark_daily_means``.
+HISTORY_REVISION = 1
 
 
 @dataclass
@@ -150,24 +156,82 @@ class StoredState:
     last_source_weight: float | None = None
 
 
-def _without_repeats(measurements: list[Measurement]) -> list[Measurement]:
-    """Drop sensor readings that only repeat the previous sensor reading.
+#: Sources that are the weight sensor speaking, live or replayed from the
+#: recorder. Only these can echo: the same value twice in a row from them is the
+#: sensor reconnecting or Home Assistant restarting, not a second weigh-in.
+_ECHOING_SOURCES = frozenset({SOURCE_SENSOR, SOURCE_IMPORT})
 
-    A sensor that keeps its value does not report again, so the same number
-    twice in a row can only mean it came back from unavailable or Home
-    Assistant restarted; neither is a weigh-in. Older versions recorded both,
-    and one day could take a dozen places in the history. Manual and imported
-    readings are left alone, they are not echoes of anything.
+#: Sources that make a day "measured", so a daily mean for it is not needed.
+#: Manual entries are left out on purpose: typing a weight by hand does not
+#: say the scale was silent that day.
+_DAY_COVERING_SOURCES = frozenset({SOURCE_SENSOR, SOURCE_IMPORT, SOURCE_SERVICE})
+
+
+def _same(a: float, b: float) -> bool:
+    return abs(a - b) < 1e-6
+
+
+def tidy_history(measurements: list[Measurement], zone: tzinfo) -> list[Measurement]:
+    """The history without echoes and without daily means it does not need.
+
+    Expects the list oldest first. Drops, in this order:
+
+    * a sensor or imported reading that repeats the previous one of either,
+      which older versions recorded on every reconnect and restart, and which
+      the recorder states that ``import_history`` reads are full of;
+    * a daily mean for a day that has a reading of its own;
+    * a daily mean that repeats the value before it, which is a day the sensor
+      stood still rather than a day with a weigh-in.
+
+    Manual entries and readings from automations are never touched.
     """
     kept: list[Measurement] = []
     previous: float | None = None
     for item in measurements:
-        if item.source == SOURCE_SENSOR:
-            if previous is not None and abs(item.weight - previous) < 1e-9:
+        if item.source in _ECHOING_SOURCES:
+            if previous is not None and _same(item.weight, previous):
                 continue
             previous = item.weight
         kept.append(item)
-    return kept
+
+    covered = {
+        m.timestamp.astimezone(zone).date()
+        for m in kept
+        if m.source in _DAY_COVERING_SOURCES
+    }
+    result: list[Measurement] = []
+    previous = None
+    for item in kept:
+        if item.source == SOURCE_STATISTICS and (
+            item.timestamp.astimezone(zone).date() in covered
+            or (previous is not None and _same(item.weight, previous))
+        ):
+            continue
+        if item.source != SOURCE_MANUAL:
+            previous = item.weight
+        result.append(item)
+    return result
+
+
+def mark_daily_means(measurements: list[Measurement], zone: tzinfo) -> int:
+    """Give daily means imported by older versions their own source.
+
+    Before 0.10.0 a daily mean from the statistics was stored as ``import``,
+    like a recorded state. The statistics start each day at local midnight, to
+    the microsecond, and a recorded state practically never does, so that is
+    what tells them apart. Uses the zone Home Assistant has now; a mean from
+    before a time zone change is not recognised and simply stays an import.
+    Returns how many were marked.
+    """
+    marked = 0
+    for item in measurements:
+        if item.source != SOURCE_IMPORT:
+            continue
+        local = item.timestamp.astimezone(zone)
+        if (local.hour, local.minute, local.second, local.microsecond) == (0, 0, 0, 0):
+            item.source = SOURCE_STATISTICS
+            marked += 1
+    return marked
 
 
 class WeightGoalManager:
@@ -729,6 +793,12 @@ class WeightGoalManager:
         self._trim()
         return added
 
+    def tidy(self) -> int:
+        """Apply ``tidy_history`` to the stored history; returns how many went."""
+        before = len(self._state.measurements)
+        self._state.measurements = tidy_history(self._state.measurements, self.zone)
+        return before - len(self._state.measurements)
+
     def _trim(self) -> None:
         """Drop what is older than the retention, and enforce the ceiling."""
         cutoff = dt_util.utcnow() - timedelta(days=RETENTION_DAYS)
@@ -924,10 +994,19 @@ class WeightGoalManager:
                 if m is not None
             ]
             measurements.sort(key=lambda m: m.timestamp)
-            cleaned = _without_repeats(measurements)
+            if raw.get("history_revision", 0) < HISTORY_REVISION:
+                marked = mark_daily_means(measurements, self.zone)
+                if marked:
+                    _LOGGER.info(
+                        "%s: marked %d imported daily means as statistics",
+                        self.entry.title,
+                        marked,
+                    )
+            cleaned = tidy_history(measurements, self.zone)
             if len(cleaned) < len(measurements):
                 _LOGGER.info(
-                    "%s: dropped %d repeated sensor readings from the history",
+                    "%s: dropped %d repeated readings and unneeded daily means "
+                    "from the history",
                     self.entry.title,
                     len(measurements) - len(cleaned),
                 )
@@ -1279,6 +1358,7 @@ class WeightGoalManager:
                 "last_rollover": self._state.last_rollover,
                 "last_source_entity": self._state.last_source_entity,
                 "last_source_weight": self._state.last_source_weight,
+                "history_revision": HISTORY_REVISION,
             }
         )
 

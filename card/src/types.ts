@@ -113,7 +113,12 @@ export type Status =
 
 export type Direction = "lose" | "maintain" | "gain";
 
-export type MeasurementSource = "manual" | "sensor" | "service" | "import";
+export type MeasurementSource =
+  | "manual"
+  | "sensor"
+  | "service"
+  | "import"
+  | "statistics";
 
 export interface Measurement {
   /** Epoch milliseconds. */
