@@ -23,6 +23,7 @@ function isPresent(state: HassEntityState | undefined): boolean {
 import type {
   Direction,
   GoalContext,
+  GoalSummary,
   HomeAssistant,
   Status,
 } from "../types";
@@ -63,6 +64,11 @@ export interface GoalModel {
   startTodayArmed: boolean;
 
   goal: Goal | null;
+  /** Every goal of the person, earliest start first; empty on integration
+   * versions before the goal list. */
+  goals: GoalSummary[];
+  /** The goals that are not active and have a complete plan, for the chart. */
+  otherGoals: Array<{ summary: GoalSummary; goal: Goal }>;
   /** Everything that must invalidate a cached measurement series. */
   stamp: string;
 }
@@ -80,13 +86,26 @@ export function readGoal(
   const startDate = textOf(hass, e.start_date);
   const endDate = textOf(hass, e.end_date);
 
-  const goal = buildGoal(
-    startWeight,
-    targetWeight,
-    startDate,
-    endDate,
-    hass.config?.time_zone ?? "UTC",
-  );
+  const timeZone = hass.config?.time_zone ?? "UTC";
+  const goal = buildGoal(startWeight, targetWeight, startDate, endDate, timeZone);
+
+  const goals = readGoals(hass, e.active_goal);
+  const otherGoals: GoalModel["otherGoals"] = [];
+  for (const summary of goals) {
+    if (summary.active) {
+      continue;
+    }
+    const built = buildGoal(
+      summary.startWeight,
+      summary.targetWeight,
+      summary.startDate,
+      summary.endDate,
+      timeZone,
+    );
+    if (built) {
+      otherGoals.push({ summary, goal: built });
+    }
+  }
 
   const attrDirection = attributeOf<Direction>(hass, e.status, "direction");
   const manualState = stateOf(hass, e.manual_weight);
@@ -130,6 +149,8 @@ export function readGoal(
     startTodayArmed: isPresent(stateOf(hass, e.confirm_start_today)),
 
     goal,
+    goals,
+    otherGoals,
     stamp: [
       statusState?.state,
       lastMeasurement,
@@ -139,6 +160,55 @@ export function readGoal(
       endDate,
     ].join("|"),
   };
+}
+
+function numberOrNull(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return value === null || value === undefined || !Number.isFinite(parsed)
+    ? null
+    : parsed;
+}
+
+function textOrNull(value: unknown): string | null {
+  return typeof value === "string" && value ? value : null;
+}
+
+/** The goal list from the `goals` attribute of the active goal select. */
+export function readGoals(
+  hass: HomeAssistant,
+  entityId: string | undefined,
+): GoalSummary[] {
+  const raw = attributeOf<unknown>(hass, entityId, "goals");
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const out: GoalSummary[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const row = item as Record<string, unknown>;
+    const result = row.result as Record<string, unknown> | null | undefined;
+    const weight = numberOrNull(result?.weight);
+    const timestamp =
+      typeof result?.timestamp === "string" ? Date.parse(result.timestamp) : NaN;
+    out.push({
+      id: String(row.id ?? ""),
+      name: String(row.name ?? ""),
+      active: row.active === true,
+      goalMode: row.goal_mode === "rate" ? "rate" : "target",
+      startWeight: numberOrNull(row.start_weight),
+      targetWeight: numberOrNull(row.target_weight),
+      ratePerWeek: numberOrNull(row.rate_per_week),
+      startDate: textOrNull(row.start_date),
+      endDate: textOrNull(row.end_date),
+      result:
+        weight === null || !Number.isFinite(timestamp)
+          ? null
+          : { weight, timestamp, reached: result?.reached === true },
+    });
+  }
+  return out;
 }
 
 /** Entity ids the card has to watch for changes. */

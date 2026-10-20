@@ -46,6 +46,11 @@ class StartDate(WeightGoalDate):
         super().__init__(manager, KEY_START_DATE)
 
     @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
+
+    @property
     def native_value(self) -> date | None:
         """Return the start date."""
         return self._manager.start_date
@@ -61,6 +66,11 @@ class EndDate(WeightGoalDate):
     def __init__(self, manager: WeightGoalManager) -> None:
         """Initialise."""
         super().__init__(manager, KEY_END_DATE)
+
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
 
     @property
     def native_value(self) -> date | None:

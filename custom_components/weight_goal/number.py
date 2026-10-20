@@ -82,6 +82,11 @@ class StartWeightNumber(_WeightNumber):
         super().__init__(manager, KEY_START_WEIGHT)
 
     @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
+
+    @property
     def native_value(self) -> float | None:
         """Return the configured start weight."""
         return self._manager.start_weight
@@ -97,6 +102,11 @@ class TargetWeightNumber(_WeightNumber):
     def __init__(self, manager: WeightGoalManager) -> None:
         """Initialise."""
         super().__init__(manager, KEY_TARGET_WEIGHT)
+
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
 
     @property
     def native_value(self) -> float | None:
@@ -125,6 +135,11 @@ class RatePerWeekNumber(WeightGoalNumber):
     def __init__(self, manager: WeightGoalManager) -> None:
         """Initialise."""
         super().__init__(manager, KEY_RATE_PER_WEEK)
+
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
 
     @property
     def native_value(self) -> float | None:

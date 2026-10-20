@@ -10,6 +10,7 @@ import "../components/wg-actions";
 import "../components/wg-badges";
 import "../components/wg-chart";
 import "../components/wg-goal-editor";
+import "../components/wg-goals";
 import "../components/wg-header";
 import "../components/wg-hero";
 import "../components/wg-progress";
@@ -63,6 +64,7 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
     if (this._config?.show_progress !== false) size += 1;
     if (this._config?.show_record !== false || this._config?.show_restart !== false)
       size += 1;
+    if (this._config?.show_goals !== false) size += 1;
     return size;
   }
 
@@ -145,6 +147,10 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
                 .model=${model}
                 .open=${model.status === "no_goal"}
               ></wg-goal-editor>`}
+
+          ${config.show_goals === false
+            ? nothing
+            : html`<wg-goals .hass=${this.hass} .model=${model}></wg-goals>`}
         </div>
       </ha-card>
     `;

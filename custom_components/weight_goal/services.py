@@ -206,6 +206,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                 "measurements": list(
                     manager.measurements_payload(call.data.get(ATTR_DAYS))
                 ),
+                "goals": manager.goals_payload(),
             }
         return {"entries": result}
 

@@ -60,7 +60,20 @@ export const de: Record<TranslationKey, string> = {
   "goal.title": "Ziel",
   "goal.derived": "berechnet",
   "goal.derived_hint":
-    "Einer dieser beiden Werte wird aus dem anderen berechnet. Ändere den Modus in den Optionen der Integration, um ihn direkt zu setzen.",
+    "Einer der beiden Werte wird aus dem anderen berechnet. Unter Ziel ändern auf der Seite der Integration legst du fest, welcher direkt eingestellt wird.",
+  "goal.none":
+    "Kein Ziel ist aktiv. Wähle eins in der Zielliste oder füge eins auf der Seite der Integration hinzu.",
+
+  "goals.title": "Ziele",
+  "goals.empty": "Noch keine Ziele.",
+  "goals.manage": "Ziele auf der Seite der Integration hinzufügen, ändern oder löschen",
+  "goals.active": "aktiv",
+  "goals.activate": "Aktivieren",
+  "goals.reached": "Erreicht mit {value} {unit}",
+  "goals.missed": "Beendet mit {value} {unit}",
+  "goals.planned": "Noch nicht begonnen",
+  "goals.running": "Läuft",
+  "goals.no_reading": "Keine Messung im Zeitraum",
 
   "progress.weight": "Gewicht",
   "progress.time": "Zeit",
@@ -115,6 +128,7 @@ export const de: Record<TranslationKey, string> = {
   "editor.band": "Toleranzband",
   "editor.plan": "Planlinie",
   "editor.projection": "Prognose",
+  "editor.goals": "Andere Ziele",
   "editor.points": "Messpunkte",
   "editor.today": "Heute-Markierung",
   "editor.grid": "Gitterlinien",
@@ -131,4 +145,5 @@ export const de: Record<TranslationKey, string> = {
   "editor.show_record_date": "Tag der Messung",
   "editor.show_restart": "Heute neu starten",
   "editor.show_goal_editor": "Zieleinstellungen",
+  "editor.show_goals": "Zielliste",
 };

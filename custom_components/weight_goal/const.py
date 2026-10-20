@@ -10,7 +10,6 @@ DOMAIN: Final = "weight_goal"
 # --- Configuration keys (stored in ConfigEntry.options) -----------------------
 
 CONF_SOURCE_ENTITY: Final = "source_entity"
-CONF_GOAL_MODE: Final = "goal_mode"
 CONF_MIN_WEIGHT: Final = "min_weight"
 CONF_MAX_WEIGHT: Final = "max_weight"
 CONF_TOLERANCE: Final = "tolerance"
@@ -20,11 +19,36 @@ CONF_MAX_JUMP: Final = "max_jump"
 CONF_ALLOW_MANUAL: Final = "allow_manual_entry"
 CONF_RECALCULATION_INTERVAL: Final = "recalculation_interval"
 
+#: Subentry id of the goal everything is computed against. Absent means no
+#: goal is active; every goal stays in the list either way.
+CONF_ACTIVE_GOAL: Final = "active_goal"
+
+# --- Goal keys (stored in the data of a ``goal`` subentry) --------------------
+
+SUBENTRY_GOAL: Final = "goal"
+
+#: Asked in the flow that creates a goal and carried in its data only until the
+#: manager has made the new goal the active one. The flow cannot do that
+#: itself: the subentry id is only known once the flow has finished.
+CONF_ACTIVATE: Final = "activate"
+
+CONF_GOAL_MODE: Final = "goal_mode"
 CONF_START_WEIGHT: Final = "start_weight"
 CONF_TARGET_WEIGHT: Final = "target_weight"
 CONF_RATE_PER_WEEK: Final = "rate_per_week"
 CONF_START_DATE: Final = "start_date"
 CONF_END_DATE: Final = "end_date"
+
+#: Everything that defines a goal. ``CONF_GOAL_MODE`` belongs to the goal too:
+#: one goal can be planned by its target, the next by its weekly rate.
+GOAL_KEYS: Final = (
+    CONF_GOAL_MODE,
+    CONF_START_WEIGHT,
+    CONF_TARGET_WEIGHT,
+    CONF_RATE_PER_WEEK,
+    CONF_START_DATE,
+    CONF_END_DATE,
+)
 
 CONF_SCRIPT_MEASUREMENT: Final = "script_measurement"
 CONF_SCRIPT_STATUS_CHANGED: Final = "script_status_changed"
@@ -76,6 +100,10 @@ MAX_PROJECTION_DAYS: Final = 3650
 
 RATE_LIMIT_PER_WEEK: Final = 5.0
 
+#: Option of the active goal select that stands for "no goal active". Goal
+#: names are free text, so this one name is refused for a goal.
+ACTIVE_GOAL_NONE: Final = "none"
+
 STORAGE_VERSION: Final = 1
 
 # --- Entity keys --------------------------------------------------------------
@@ -100,6 +128,7 @@ KEY_LAST_MEASUREMENT: Final = "last_measurement"
 KEY_START_TODAY: Final = "start_today"
 KEY_RECORD_WEIGHT: Final = "record_weight"
 KEY_CONFIRM_START_TODAY: Final = "confirm_start_today"
+KEY_ACTIVE_GOAL: Final = "active_goal"
 
 # --- Statuses -----------------------------------------------------------------
 
@@ -109,9 +138,12 @@ STATUS_ON_TRACK: Final = "on_track"
 STATUS_BEHIND: Final = "behind"
 STATUS_REACHED: Final = "reached"
 STATUS_ENDED: Final = "ended"
+#: The active goal starts on a later day; there is no plan to compare with yet.
+STATUS_UPCOMING: Final = "upcoming"
 
 STATUSES: Final = [
     STATUS_NO_GOAL,
+    STATUS_UPCOMING,
     STATUS_AHEAD,
     STATUS_ON_TRACK,
     STATUS_BEHIND,

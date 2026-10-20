@@ -21,12 +21,15 @@ polled, and nothing leaves your instance.
 ## Features
 
 - One entry per person. Add as many as you need.
+- A list of goals per person, past, running and planned, with exactly one
+  active at a time. Finished goals keep their outcome, and the chart draws
+  them next to the active one.
 - Works with a smart scale entity or with weights entered by hand, or both.
 - Losing, maintaining and gaining goals. The status knows which way is good.
 - The goal is defined either by a target weight or by a change per week. The
   other value is calculated and read only, so the two can never drift apart.
 - Status with a tolerance band: `ahead`, `on_track`, `behind`,
-  `reached`, `ended`, `no_goal`.
+  `reached`, `ended`, `upcoming`, `no_goal`.
 - Events on the event bus, plus optional actions you can configure in the UI.
 - Nothing is polled. The integration reacts to your weight source and to a
   small number of scheduled points in time.
@@ -62,9 +65,8 @@ directory and restart Home Assistant.
 | --- | --- |
 | Name | Used for the device and in the entity IDs, for example `sensor.alex_status`. |
 | Weight source | Any entity whose state is a weight in kilograms. Leave empty to enter weights by hand. |
-| Define the goal by | Target weight, or change per week. Whichever you pick is the value you set; the other is calculated. |
 
-Everything else lives under **Configure** on the entry:
+Goals are added afterwards, see [Goals](#goals). Everything else lives under **Configure** on the entry:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -77,6 +79,40 @@ Everything else lives under **Configure** on the entry:
 | Extra recalculation | 0 min | Recalculate every N minutes on top of midnight and every measurement. See [How often the sensors update](#how-often-the-sensors-update). |
 | Actions | empty | Optional scripts, see [Events and actions](#events-and-actions). |
 
+## Goals
+
+A person has a list of goals. **Add goal** on the entry, under **Settings →
+Devices & Services → Road to Weight Goal**, creates one; the three dot menu
+next to a goal changes or deletes it.
+
+| Field | Meaning |
+| --- | --- |
+| Name | Shown in the goal list and in `select.<name>_active_goal`, so it has to differ from the other goals of the person. `none` is taken. |
+| Define the goal by | Target weight, or change per week. Whichever you pick is the value you set; the other is calculated. Each goal has its own. |
+| Make it the active goal | On by default. Switch it off to record a goal from the past, or one you plan for later. |
+| Start weight, start and end date | The end day counts towards the goal in full. |
+| Target weight or change per week | Whichever the goal is defined by. |
+
+Goals may overlap and leave gaps between them. **Exactly one goal is active, or
+none.** Every sensor, the status, the events and the goal entities follow the
+active goal; the others are history or plans. Pick it with
+`select.<name>_active_goal`, from a dashboard, an automation or the card.
+
+Changing the values of a goal corrects it; it does not start a new one. A new
+goal is always one you add. That keeps a correction from leaving a goal behind
+that was never meant, and it keeps the plan of a finished goal the way it was.
+
+Once its last day is over, a goal gets an outcome: the last weight recorded
+inside its period, and whether that reached the target. A maintain goal counts
+as reached inside the on track tolerance. The outcome is remembered, so it
+survives the readings it came from leaving the two year history.
+
+Updating from 0.10 or earlier turns the one goal there was into the first goal
+of the list, named after its period, and makes it active. Nothing else changes:
+the entity IDs, the values and the status stay the same. Rename it with **Change
+goal**, and add your earlier goals as inactive ones if you want them in the
+chart.
+
 ## Entities
 
 Entity IDs are always built from the English key, whatever language your
@@ -84,7 +120,8 @@ instance runs in. Display names are translated.
 
 | Entity | Type | Notes |
 | --- | --- | --- |
-| `number.<name>_start_weight` | Number | Weight the goal starts from. |
+| `select.<name>_active_goal` | Select | The active goal, by name, or `none`. Carries the whole goal list as the `goals` attribute, with values and outcome, for cards and templates. The attribute is not written to the recorder. |
+| `number.<name>_start_weight` | Number | Weight the active goal starts from. |
 | `number.<name>_target_weight` | Number | Read only when the goal is defined by rate. |
 | `number.<name>_rate_per_week` | Number | Read only when the goal is defined by target weight. |
 | `number.<name>_manual_weight` | Number | Holds a weight until you confirm it. Nothing is recorded by typing alone. Unavailable while a weight source is configured, unless you switch manual entry back on. |
@@ -98,18 +135,22 @@ instance runs in. Display names are translated.
 | `sensor.<name>_target_weight_today` | Sensor | Where the plan says you should be. |
 | `sensor.<name>_deviation` | Sensor | Weight minus plan. Read the sign together with `direction`. |
 | `sensor.<name>_trend` | Sensor | Change across the trend window. Unavailable when the window is 0. |
-| `sensor.<name>_weight_progress` | Sensor | Percent of the planned weight change achieved. Clamped to 0-100, so overshooting reads as 100. Unknown for a maintain goal. |
+| `sensor.<name>_weight_progress` | Sensor | Percent of the planned weight change achieved. Clamped to 0-100, so overshooting reads as 100. Unknown for a maintain goal and before the goal begins. |
 | `sensor.<name>_time_progress` | Sensor | Percent of the goal period elapsed. |
 | `sensor.<name>_remaining` | Sensor | Kilograms still to go, never negative. |
 | `sensor.<name>_projected_date` | Sensor | When you reach the target at the current pace. |
-| `sensor.<name>_status` | Sensor | Enum, see below. Carries `direction`, `tolerance`, `goal_mode`, `min_weight`, `max_weight` and `trend_window_days` as attributes, so a card needs this one entity and nothing else to render correctly. |
+| `sensor.<name>_status` | Sensor | Enum, see below. Carries `active_goal`, `direction`, `tolerance`, `goal_mode`, `min_weight`, `max_weight` and `trend_window_days` as attributes, so a card needs this one entity and nothing else to render correctly. |
 | `sensor.<name>_last_measurement` | Sensor | Timestamp of the latest measurement. |
+
+The goal numbers, the goal dates and `start_today` are unavailable while no goal
+is active.
 
 ### Status
 
 | Value | Meaning |
 | --- | --- |
-| `no_goal` | No usable goal is configured. |
+| `no_goal` | No goal is active. |
+| `upcoming` | The active goal begins on a later day. Until then there is no plan, so no deviation either. |
 | `on_track` | Inside the tolerance band. |
 | `ahead` | Beyond the plan in the direction of the goal. |
 | `behind` | Beyond the plan against the direction of the goal. |
@@ -134,8 +175,8 @@ as good an anchor as the device itself.
 | Service | Purpose |
 | --- | --- |
 | `weight_goal.record_weight` | Record a weight, optionally with a timestamp. |
-| `weight_goal.set_goal` | Change several goal values in one atomic write. |
-| `weight_goal.reset_goal` | Clear the goal. Recorded weights are kept. |
+| `weight_goal.set_goal` | Change several values of the active goal in one atomic write. |
+| `weight_goal.reset_goal` | Leave no goal active. The goal stays in the list, and recorded weights are kept. |
 | `weight_goal.ignore_last_measurement` | Drop the latest measurement from trend, projection and status. |
 | `weight_goal.delete_measurement` | Remove one measurement by timestamp. |
 | `weight_goal.get_measurements` | Return the recorded measurements as a response. |
@@ -335,6 +376,7 @@ show_progress: false
 show_record: false
 show_restart: false
 show_goal_editor: false
+show_goals: false
 range: 90
 average: 7
 ```
@@ -346,14 +388,17 @@ request rather than two.
 
 | Layer | Where it comes from |
 | --- | --- |
-| Plan line | Computed from start weight, target weight and the two dates. It is a straight line, so it is drawn exactly rather than sampled from recorded states. |
+| Other goals | The plan of every goal that is not active, as a thin line over its own period with its name at the end. No band: goals may overlap, and stacked bands would be unreadable. Off with `show.goals: false`. |
+| Plan line | Computed from start weight, target weight and the two dates of the active goal, over its period and nothing else. It is a straight line, so it is drawn exactly rather than sampled from recorded states. |
 | Tolerance band | The plan ± the on track tolerance. While a reading is inside the band the status is `on_track`, so the band is the status made visible. |
 | Readings | The measurement history, see **Where the readings come from** below. |
 | Moving average | A trailing average over the raw readings. Off with `average: 0`. |
 | Projection | Dashed, from the last reading to `sensor.<name>_projected_date`. Absent when that sensor is unknown. |
 
 Readings outside the band are drawn hollow rather than filled, so the
-distinction does not depend on colour alone.
+distinction does not depend on colour alone. Readings before or after the
+active goal have no plan to be outside of, and the tooltip compares them with
+nothing.
 
 ### Where the readings come from
 
@@ -375,7 +420,7 @@ which wins over the flat form.
 | `name` | device name | Header text. |
 | `icon` | `mdi:scale-bathroom` | Header icon. |
 | `source` | `measurements` | See above. |
-| `range` | `goal` | `goal` for the whole goal period, a number of days, or `all`. |
+| `range` | `goal` | `goal` for the period of the active goal, a number of days, or `all` for every reading there is. |
 | `average` | `7` | Days for the moving average. `0` turns it off. |
 | `line` | `smooth` | `smooth`, `linear` or `step`. |
 | `height` | `190` / `220` | Chart height in pixels. |
@@ -383,20 +428,20 @@ which wins over the flat form.
 | `y_axis.mode` | `nice` | `nice` rounds the automatic ends outwards to readable numbers. `tight` uses the smallest and largest value exactly, which is worth it when the movement is small compared to the goal range. The two ends are labelled with their exact value, so they may carry more decimals than the lines between them. |
 | `y_axis.include_goal` | `true` | Whether the plan line and the band may widen the axis. `false` fits the axis to the readings and clips the plan. |
 | `y_axis.ticks` | `4` | Roughly how many grid lines to draw. |
-| `show.band`, `show.plan`, `show.average`, `show.projection`, `show.points`, `show.today`, `show.grid`, `show.axis` | all `true` | Individual layers. |
+| `show.band`, `show.plan`, `show.goals`, `show.average`, `show.projection`, `show.points`, `show.today`, `show.grid`, `show.axis` | all `true` | Individual layers. |
 | `styles.<series>.color` | see below | Any CSS colour or `var(--…)`. On `weight`, `auto` follows the status. |
 | `styles.<series>.width` | varies | Stroke width in pixels. |
 | `styles.<series>.dash` | varies | SVG dash pattern, for example `"6 4"`. |
 | `styles.<series>.opacity` | `1` | For `band` this is the fill opacity. |
 | `styles.weight.point_size` | `3` | Radius of the reading dots. `0` hides them. |
 
-Series names are `weight`, `average`, `plan`, `band` and `projection`.
+Series names are `weight`, `average`, `plan`, `band`, `projection` and `goals`.
 
 Only for the card:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor` | `true` | Individual sections. |
+| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor`, `show_goals` | `true` | Individual sections. `show_goals` is the goal list, with the outcome of each finished goal and a button to activate it; adding, changing and deleting goals stays on the integration page, which the list links to. |
 | `show_record`, `show_restart` | `true` | The two actions, independent of each other. Both off is no action row at all. |
 | `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
@@ -462,6 +507,7 @@ type: custom:weight-goal-card
 entity: sensor.alex_status
 show_chart: false
 show_goal_editor: false
+show_goals: false
 ```
 
 A wide chart in your own colours, without the raw readings:
@@ -578,7 +624,8 @@ configure under **Configure → Actions**. Both, not one or the other.
 | `weight_goal_goal_ended` | `weight`, `target_weight`, `reached` |
 | `weight_goal_measurement_overdue` | `last_measurement`, `days` |
 
-Every event also carries `entry_id` and `name`.
+Every event also carries `entry_id`, `name` and `goal`, the name of the active
+goal.
 
 ### Example: speak the result when the goal ends
 
@@ -757,7 +804,7 @@ cd card && npm run preview
 That serves the repository over HTTP on port 8765 — ES modules do not load over
 `file://` — and prints the URL: <http://localhost:8765/card/preview.html>.
 
-Forty-four cards, covering every status, both goal modes, both measurement
+Fifty cards, covering every status, both goal modes, a goal list, both measurement
 sources, all three ways the card discovers entities, a goal in pounds, the empty
 states (no goal, never weighed, entities missing) and the broken ones (writes
 rejected, readings unavailable, dangling anchor, config that throws). Each one
@@ -767,7 +814,7 @@ is repeated in a 280px column, below the card's own 300 and 320px breakpoints.
 
 | Faked | Why, and how far |
 | --- | --- |
-| `ha-card`, `ha-icon` | Host components. Same box, same theme variables, same icon size. The icons are the real ones: the 33 paths the card can ask for, lifted once from `hass_frontend/static/mdi` in the development virtualenv and embedded as data. That matters because below 300px the card hides the status text and below 320px the button labels, so the icon becomes the only thing telling two controls apart, and stand-ins cannot answer whether that works. A name with no path falls back to a generated shape; `wg.iconCollisions()` asserts no two icons in one card drew the same thing. |
+| `ha-card`, `ha-icon` | Host components. Same box, same theme variables, same icon size. The icons are the real ones: the 34 paths the card can ask for, lifted once from `hass_frontend/static/mdi` in the development virtualenv and embedded as data. That matters because below 300px the card hides the status text and below 320px the button labels, so the icon becomes the only thing telling two controls apart, and stand-ins cannot answer whether that works. A name with no path falls back to a generated shape; `wg.iconCollisions()` asserts no two icons in one card drew the same thing. |
 | The `hass` object | States, entity registry, device registry, locale. One fake instance holding every fixture goal, so entity discovery runs for real. |
 | The service layer | `callService` and `connection.sendMessagePromise`. **These write.** A press, a typed weight or an edited date changes the fake state, recomputes the goal the way `manager.py` does and pushes a new `hass` to every card, including other cards showing the same goal. A stub that only logged would leave the whole input → state → redraw path untested. |
 | `formatEntityState` | The one Home Assistant formatting helper the card calls. |

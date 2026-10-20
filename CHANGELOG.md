@@ -6,6 +6,45 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A list of goals per person. Goals are added, changed and deleted on the
+  integration page with **Add goal**, each with its own name, period and
+  goal mode, and they may overlap. Exactly one is active, or none: the sensors,
+  the status, the events and the goal entities follow it.
+- `select.<name>_active_goal` picks the active goal. Its `goals` attribute
+  carries the whole list with the values of each goal and, once a goal is
+  over, its outcome: the last weight inside its period and whether it reached
+  the target. The attribute is kept out of the recorder.
+- The chart draws the goals that are not active as thin lines over their own
+  period, with their names, so past goals show where they were set.
+  `show.goals` switches them off.
+- The card has a goal list, newest first, with the outcome of finished goals
+  and a button to activate another one. `show_goals` switches it off.
+- Status `upcoming` for an active goal that begins on a later day.
+- Every event carries `goal`, the name of the active goal.
+- `get_measurements` returns the goal list next to the readings.
+
+### Changed
+
+- The single goal of earlier versions becomes the first goal of the list,
+  named after its period, and stays active. Entity IDs, values and status are
+  unchanged. A config entry migrated this way cannot be loaded by 0.10 or
+  earlier again.
+- The goal mode belongs to each goal and is no longer asked for at setup or
+  under **Configure → Settings**.
+- `reset_goal` leaves no goal active instead of clearing the goal; the goal
+  stays in the list. The goal entities are unavailable while no goal is active.
+- Plan line and tolerance band cover the period of the active goal and nothing
+  else. Readings before or after it are no longer drawn hollow or compared
+  with a plan that was flattened onto them.
+- `range: all` loads every reading. It used to load only what the active goal
+  covered, plus the run up for the average.
+- Before an active goal begins, `deviation`, `target_weight_today` and
+  `weight_progress` are unknown.
+- A card that shows only chosen sections now also needs `show_goals: false`,
+  or the goal list appears below it after the update.
+
 ## [0.10.0] - 2026-10-04
 
 ### Fixed

@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.weight_goal.const import (
+    CONF_ACTIVE_GOAL,
     CONF_END_DATE,
     CONF_GOAL_MODE,
     CONF_MAX_WEIGHT,
@@ -23,13 +24,18 @@ from custom_components.weight_goal.const import (
     CONF_TOLERANCE,
     CONF_TREND_WINDOW_DAYS,
     DOMAIN,
+    GOAL_KEYS,
     MODE_TARGET,
+    SUBENTRY_GOAL,
 )
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
 #: All tests use this as "today" via freezegun where timing matters.
 TODAY = date(2026, 3, 1)
+
+#: Subentry id of the goal ``make_entry`` creates and makes active.
+GOAL_ID = "goal1"
 
 
 @pytest.fixture(autouse=True)
@@ -64,16 +70,40 @@ def goal_options(**overrides):
 
 
 def make_entry(hass: HomeAssistant, **overrides) -> MockConfigEntry:
-    """Create and register a config entry."""
+    """Create and register a config entry with one active goal.
+
+    Overrides of goal values go into the goal, everything else into the
+    options, so a test can keep passing both in one call.
+    """
+    title = overrides.pop("title", "Julien")
+    entry_id = overrides.pop("entry_id", "testentry")
+    merged = goal_options(**overrides)
+    goal = {key: merged.pop(key) for key in GOAL_KEYS if key in merged}
+    merged[CONF_ACTIVE_GOAL] = GOAL_ID
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title=overrides.pop("title", "Julien"),
+        title=title,
         data={CONF_NAME: "Julien"},
-        options=goal_options(**overrides),
-        entry_id=overrides.pop("entry_id", "testentry"),
+        options=merged,
+        entry_id=entry_id,
+        version=2,
+        subentries_data=[
+            {
+                "data": goal,
+                "subentry_id": GOAL_ID,
+                "subentry_type": SUBENTRY_GOAL,
+                "title": "Spring",
+                "unique_id": None,
+            }
+        ],
     )
     entry.add_to_hass(hass)
     return entry
+
+
+def goal_data(entry: MockConfigEntry, goal_id: str = GOAL_ID) -> dict:
+    """The stored values of a goal."""
+    return dict(entry.subentries[goal_id].data)
 
 
 @pytest.fixture

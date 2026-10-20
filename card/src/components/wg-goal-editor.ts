@@ -35,12 +35,27 @@ export class WgGoalEditor extends LitElement {
     }
     const entities = model.context.entities;
     const mode = model.goalMode;
+    const active = model.goals.find((goal) => goal.active);
+    // Only an integration with a goal list can have none active; an older
+    // one shows its single goal as before.
+    if (entities.active_goal && !active) {
+      return html`
+        <details ?open=${this.open}>
+          <summary>
+            <ha-icon icon="mdi:target"></ha-icon>
+            <span>${localize(this.hass, "goal.title")}</span>
+          </summary>
+          <p class="hint muted">${localize(this.hass, "goal.none")}</p>
+        </details>
+      `;
+    }
 
     return html`
       <details ?open=${this.open}>
         <summary>
           <ha-icon icon="mdi:target"></ha-icon>
           <span>${localize(this.hass, "goal.title")}</span>
+          ${active ? html`<span class="muted">${active.name}</span>` : nothing}
         </summary>
         <div class="grid">
           ${this._numberRow(entities.start_weight, model.unit, false)}

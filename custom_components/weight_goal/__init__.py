@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 import logging
+from types import MappingProxyType
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import (
+    CONF_ACTIVE_GOAL,
+    CONF_END_DATE,
+    CONF_GOAL_MODE,
+    CONF_START_DATE,
+    CONF_START_WEIGHT,
+    CONF_TARGET_WEIGHT,
+    DEFAULT_GOAL_MODE,
+    DOMAIN,
+    GOAL_KEYS,
+    SUBENTRY_GOAL,
+)
+from .helpers import normalise_goal
 from .frontend import async_register_frontend
 from .manager import WeightGoalManager
 from .services import async_register_services
@@ -25,6 +38,7 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.DATE,
     Platform.NUMBER,
+    Platform.SELECT,
     Platform.SENSOR,
 ]
 
@@ -36,6 +50,43 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_register_services(hass)
     await async_register_frontend(hass)
     return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Move the one goal of version 1 into the goal list of version 2.
+
+    Version 1 kept a single goal in the options. It becomes the first goal of
+    the list, named after its period, and stays active, so every entity reads
+    what it read before. An incomplete goal is carried over as well: dropping
+    values someone typed in is worse than a goal that still needs its end date.
+    """
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        options = dict(entry.options)
+        goal = {key: options.pop(key) for key in GOAL_KEYS if key in options}
+        goal.setdefault(CONF_GOAL_MODE, DEFAULT_GOAL_MODE)
+        if any(key in goal for key in (CONF_START_WEIGHT, CONF_TARGET_WEIGHT)):
+            subentry = ConfigSubentry(
+                data=MappingProxyType(normalise_goal(goal)),
+                subentry_type=SUBENTRY_GOAL,
+                title=_period_title(goal),
+                unique_id=None,
+            )
+            hass.config_entries.async_add_subentry(entry, subentry)
+            options[CONF_ACTIVE_GOAL] = subentry.subentry_id
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
+        _LOGGER.debug("%s: migrated to version 2", entry.title)
+    return True
+
+
+def _period_title(goal: dict) -> str:
+    """Name for a migrated goal; it can be renamed like any other."""
+    start = goal.get(CONF_START_DATE)
+    end = goal.get(CONF_END_DATE)
+    if start and end:
+        return f"{start} – {end}"
+    return start or end or "Goal"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeightGoalConfigEntry) -> bool:

@@ -3,15 +3,13 @@
     "step": {
       "user": {
         "title": "Road to Weight Goal",
-        "description": "Ein Eintrag verfolgt eine Person. Weitere Einträge kannst du später hinzufügen.",
+        "description": "Ein Eintrag verfolgt eine Person. Ziele fügst du danach am Eintrag hinzu, mit Ziel hinzufügen.",
         "data": {
           "name": "Name",
-          "source_entity": "Gewichtsquelle",
-          "goal_mode": "Ziel festlegen über"
+          "source_entity": "Gewichtsquelle"
         },
         "data_description": {
-          "source_entity": "Ein Sensor, der ein Gewicht in Kilogramm liefert, zum Beispiel von einer smarten Waage. Leer lassen, um Gewichte von Hand einzutragen.",
-          "goal_mode": "Der gewählte Wert ist der, den du einstellst; der andere wird daraus berechnet."
+          "source_entity": "Ein Sensor, der ein Gewicht in Kilogramm liefert, zum Beispiel von einer smarten Waage. Leer lassen, um Gewichte von Hand einzutragen."
         }
       }
     },
@@ -35,7 +33,6 @@
         "title": "Einstellungen",
         "data": {
           "source_entity": "Gewichtsquelle",
-          "goal_mode": "Ziel festlegen über",
           "min_weight": "Kleinstes plausibles Gewicht",
           "max_weight": "Größtes plausibles Gewicht",
           "tolerance": "Toleranz für „im Plan“",
@@ -68,6 +65,63 @@
     },
     "error": {
       "invalid_range": "Das kleinste plausible Gewicht muss unter dem größten liegen."
+    }
+  },
+  "config_subentries": {
+    "goal": {
+      "initiate_flow": {
+        "user": "Ziel hinzufügen",
+        "reconfigure": "Ziel ändern"
+      },
+      "entry_type": "Ziel",
+      "step": {
+        "user": {
+          "title": "Neues Ziel",
+          "data": {
+            "name": "Name",
+            "goal_mode": "Ziel festlegen über",
+            "activate": "Zum aktiven Ziel machen"
+          },
+          "data_description": {
+            "name": "Erscheint in der Zielliste und in der Auswahl des aktiven Ziels.",
+            "goal_mode": "Der gewählte Wert ist der, den du einstellst; der andere wird daraus berechnet.",
+            "activate": "Es ist immer nur ein Ziel aktiv; Sensoren, Status und Events folgen ihm. Ausschalten, um ein vergangenes Ziel nachzutragen."
+          }
+        },
+        "reconfigure": {
+          "title": "Ziel ändern",
+          "data": {
+            "name": "Name",
+            "goal_mode": "Ziel festlegen über"
+          },
+          "data_description": {
+            "goal_mode": "Der gewählte Wert ist der, den du einstellst; der andere wird daraus berechnet."
+          }
+        },
+        "values": {
+          "title": "Ziel",
+          "data": {
+            "start_weight": "Startgewicht",
+            "start_date": "Startdatum",
+            "end_date": "Enddatum",
+            "target_weight": "Zielgewicht",
+            "rate_per_week": "Änderung pro Woche"
+          },
+          "data_description": {
+            "end_date": "Der letzte Tag zählt voll zum Ziel.",
+            "rate_per_week": "Negativ zum Abnehmen, positiv zum Zunehmen."
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Bitte einen Namen eingeben.",
+        "name_taken": "Ein anderes Ziel heißt bereits so.",
+        "reserved_name": "Dieser Name steht für „kein Ziel“ und ist vergeben.",
+        "invalid_dates": "Das Enddatum muss mindestens einen Tag nach dem Startdatum liegen."
+      },
+      "abort": {
+        "reconfigure_successful": "Das Ziel wurde geändert."
+      }
     }
   },
   "selector": {
@@ -141,6 +195,7 @@
         "name": "Status",
         "state": {
           "no_goal": "Kein Ziel",
+          "upcoming": "Bevorstehend",
           "ahead": "Voraus",
           "on_track": "Im Plan",
           "behind": "Zurück",
@@ -153,6 +208,14 @@
       },
       "time_progress": {
         "name": "Fortschritt Zeit"
+      }
+    },
+    "select": {
+      "active_goal": {
+        "name": "Aktives Ziel",
+        "state": {
+          "none": "Kein Ziel"
+        }
       }
     }
   },
@@ -198,8 +261,8 @@
       }
     },
     "reset_goal": {
-      "name": "Ziel zurücksetzen",
-      "description": "Löscht das Ziel. Erfasste Gewichte bleiben erhalten."
+      "name": "Ziel deaktivieren",
+      "description": "Lässt kein Ziel aktiv. Das Ziel bleibt in der Liste, erfasste Gewichte bleiben erhalten."
     },
     "ignore_last_measurement": {
       "name": "Letzte Messung ignorieren",
@@ -254,7 +317,7 @@
   },
   "exceptions": {
     "derived_value": {
-      "message": "Dieser Wert wird aus den anderen berechnet. Ändere den Modus in den Optionen, wenn du ihn direkt setzen willst. Aktueller Modus: {mode}."
+      "message": "Dieser Wert wird aus den anderen berechnet. Ändere unter Ziel ändern, worüber das Ziel festgelegt wird, wenn du ihn direkt setzen willst. Aktueller Modus: {mode}."
     },
     "no_target": {
       "message": "Es wurde keine Road-to-Weight-Goal-Entität ausgewählt."
@@ -282,6 +345,12 @@
     },
     "date_in_the_future": {
       "message": "Eine Messung lässt sich nur für heute oder einen früheren Tag erfassen."
+    },
+    "no_active_goal": {
+      "message": "Kein Ziel ist aktiv. Wähle eins unter Aktives Ziel oder füge eins am Eintrag hinzu."
+    },
+    "unknown_goal": {
+      "message": "Es gibt kein Ziel mit diesem Namen."
     }
   }
 }

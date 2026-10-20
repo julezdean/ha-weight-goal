@@ -34,7 +34,7 @@ from custom_components.weight_goal.const import (
     STATUS_REACHED,
 )
 
-from .conftest import make_entry
+from .conftest import goal_data, make_entry
 
 #: 1 March 2026, 12:00 local. The default goal runs from 1 March to 9 May,
 #: 80 kg down to 75 kg, which is exactly 10 weeks at -0.5 kg per week.
@@ -85,7 +85,7 @@ async def test_a_derived_rate_is_shown_at_the_step_it_accepts(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.options[CONF_RATE_PER_WEEK] == pytest.approx(-0.3763, abs=0.0001)
+    assert goal_data(entry)[CONF_RATE_PER_WEEK] == pytest.approx(-0.3763, abs=0.0001)
     assert hass.states.get("number.julien_rate_per_week").state == "-0.38"
 
 
@@ -316,11 +316,11 @@ async def test_start_today_leaves_the_end_date_alone(
         )
     await hass.async_block_till_done()
 
-    assert mock_entry.options[CONF_START_DATE] == "2026-03-15"
-    assert mock_entry.options[CONF_START_WEIGHT] == 78.3
-    assert mock_entry.options[CONF_END_DATE] == "2026-05-09"
+    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-15"
+    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 78.3
+    assert goal_data(mock_entry)[CONF_END_DATE] == "2026-05-09"
     # The rate follows from the shortened remaining range.
-    assert mock_entry.options[CONF_RATE_PER_WEEK] == pytest.approx(-0.4125, abs=0.0001)
+    assert goal_data(mock_entry)[CONF_RATE_PER_WEEK] == pytest.approx(-0.4125, abs=0.0001)
 
 
 async def test_implausible_and_jumping_values_are_rejected(

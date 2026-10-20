@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.weight_goal.const import (
+    CONF_ACTIVE_GOAL,
     CONF_END_DATE,
     CONF_GOAL_MODE,
     CONF_RATE_PER_WEEK,
@@ -34,7 +35,7 @@ from custom_components.weight_goal.const import (
     STATUS_NO_GOAL,
 )
 
-from .conftest import make_entry
+from .conftest import goal_data, make_entry
 
 START = datetime(2026, 3, 1, 12, 0, tzinfo=dt_util.UTC)
 ANCHOR = {"entity_id": "sensor.julien_status"}
@@ -126,10 +127,10 @@ async def test_set_goal_is_atomic(
     )
     await hass.async_block_till_done()
 
-    assert mock_entry.options[CONF_START_WEIGHT] == 90.0
-    assert mock_entry.options[CONF_TARGET_WEIGHT] == 83.0
+    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 90.0
+    assert goal_data(mock_entry)[CONF_TARGET_WEIGHT] == 83.0
     # 35 days including the last one, so exactly five weeks.
-    assert mock_entry.options[CONF_RATE_PER_WEEK] == pytest.approx(-1.4)
+    assert goal_data(mock_entry)[CONF_RATE_PER_WEEK] == pytest.approx(-1.4)
 
 
 async def test_set_goal_refuses_the_derived_value(
@@ -160,7 +161,7 @@ async def test_rate_mode_derives_the_target(hass: HomeAssistant, frozen) -> None
     await hass.async_block_till_done()
 
     # Ten weeks at -0.8 kg from 80 kg.
-    assert entry.options[CONF_TARGET_WEIGHT] == pytest.approx(72.0)
+    assert goal_data(entry)[CONF_TARGET_WEIGHT] == pytest.approx(72.0)
     assert hass.states.get("number.julien_target_weight").state == "72.0"
 
 
@@ -184,7 +185,7 @@ async def test_target_number_is_read_only_in_rate_mode(
 async def test_reset_goal_keeps_the_measurements(
     hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
 ) -> None:
-    """Resetting clears the goal but not the recorded weights."""
+    """Resetting leaves no goal active, but keeps the goal and the weights."""
     assert await hass.config_entries.async_setup(mock_entry.entry_id)
     await hass.async_block_till_done()
     await mock_entry.runtime_data.async_record_weight(80.0)
@@ -195,7 +196,9 @@ async def test_reset_goal_keeps_the_measurements(
 
     assert hass.states.get("sensor.julien_status").state == STATUS_NO_GOAL
     assert hass.states.get("sensor.julien_weight").state == "80.0"
-    assert CONF_TARGET_WEIGHT not in mock_entry.options
+    assert CONF_ACTIVE_GOAL not in mock_entry.options
+    assert goal_data(mock_entry)[CONF_TARGET_WEIGHT] == 75.0
+    assert hass.states.get("number.julien_target_weight").state == "unavailable"
 
 
 async def test_ignore_last_measurement(

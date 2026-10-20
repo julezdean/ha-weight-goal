@@ -21,6 +21,7 @@ EXPECTED = {
     "date.julien_end_date",
     "button.julien_start_today",
     "button.julien_confirm_start_today",
+    "select.julien_active_goal",
     "sensor.julien_weight",
     "sensor.julien_target_weight_today",
     "sensor.julien_deviation",

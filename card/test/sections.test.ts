@@ -71,6 +71,8 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     manualPending: false,
     startTodayArmed: false,
     goal: { begin: 0, finish: 1 },
+    goals: [],
+    otherGoals: [],
     context: { name: "Julien", entities: ENTITIES, target: ENTITIES.weight },
   } as unknown as GoalModel;
 

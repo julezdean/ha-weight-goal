@@ -13,6 +13,7 @@ const KEYS = [
   ["button", "start_today"],
   ["button", "confirm_start_today"],
   ["button", "record_weight"],
+  ["select", "active_goal"],
   ["sensor", "weight"],
   ["sensor", "target_weight_today"],
   ["sensor", "deviation"],

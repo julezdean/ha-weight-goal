@@ -19,13 +19,11 @@ from custom_components.weight_goal.const import (
     CONF_TOLERANCE,
     CONF_TREND_WINDOW_DAYS,
     DOMAIN,
-    MODE_RATE,
-    MODE_TARGET,
 )
 
 
 async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
-    """A name and a mode are enough to create an entry."""
+    """A name is enough to create an entry; goals come afterwards."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -37,7 +35,6 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
         {
             CONF_NAME: "Julien",
             CONF_SOURCE_ENTITY: "sensor.scale",
-            CONF_GOAL_MODE: MODE_TARGET,
         },
     )
     await hass.async_block_till_done()
@@ -45,7 +42,7 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Julien"
     assert result["options"][CONF_SOURCE_ENTITY] == "sensor.scale"
-    assert result["options"][CONF_GOAL_MODE] == MODE_TARGET
+    assert CONF_GOAL_MODE not in result["options"]
     assert result["options"][CONF_MIN_WEIGHT] == 20.0
     assert result["options"][CONF_MAX_WEIGHT] == 300.0
 
@@ -56,7 +53,7 @@ async def test_user_flow_without_source(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_NAME: "Alex", CONF_GOAL_MODE: MODE_RATE}
+        result["flow_id"], {CONF_NAME: "Alex"}
     )
     await hass.async_block_till_done()
 
@@ -74,7 +71,7 @@ async def test_duplicate_name_aborts(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_NAME: "Julien", CONF_GOAL_MODE: MODE_TARGET}
+        result["flow_id"], {CONF_NAME: "Julien"}
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
@@ -86,7 +83,7 @@ async def test_empty_name_shows_error(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_NAME: "   ", CONF_GOAL_MODE: MODE_TARGET}
+        result["flow_id"], {CONF_NAME: "   "}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_NAME: "invalid_name"}
@@ -108,7 +105,6 @@ async def test_options_settings(hass: HomeAssistant, mock_entry: MockConfigEntry
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_GOAL_MODE: MODE_RATE,
             CONF_MIN_WEIGHT: 30.0,
             CONF_MAX_WEIGHT: 200.0,
             CONF_TOLERANCE: 1.0,
@@ -123,7 +119,6 @@ async def test_options_settings(hass: HomeAssistant, mock_entry: MockConfigEntry
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert mock_entry.options[CONF_TOLERANCE] == 1.0
     assert mock_entry.options[CONF_TREND_WINDOW_DAYS] == 14
-    assert mock_entry.options[CONF_GOAL_MODE] == MODE_RATE
 
 
 async def test_options_rejects_inverted_range(
@@ -140,7 +135,6 @@ async def test_options_rejects_inverted_range(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_GOAL_MODE: MODE_TARGET,
             CONF_MIN_WEIGHT: 200.0,
             CONF_MAX_WEIGHT: 30.0,
             CONF_TOLERANCE: 0.5,

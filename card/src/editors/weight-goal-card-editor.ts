@@ -57,6 +57,7 @@ export class WeightGoalCardEditor extends LitElement {
               { name: "show_record_date", selector: { boolean: {} } },
               { name: "show_restart", selector: { boolean: {} } },
               { name: "show_goal_editor", selector: { boolean: {} } },
+              { name: "show_goals", selector: { boolean: {} } },
             ],
           },
           {
@@ -120,6 +121,7 @@ export class WeightGoalCardEditor extends LitElement {
       show_record_date: true,
       show_restart: true,
       show_goal_editor: true,
+      show_goals: true,
       source: "measurements",
       range: "goal",
       line: "smooth",
@@ -135,6 +137,7 @@ export class WeightGoalCardEditor extends LitElement {
       show: {
         band: true,
         plan: true,
+        goals: true,
         average: true,
         projection: true,
         points: true,

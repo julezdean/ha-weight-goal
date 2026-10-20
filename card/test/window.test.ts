@@ -90,6 +90,11 @@ describe("fetchDays", () => {
     expect(fetchDays(90, 7, GOAL, NOW)).toBe(91);
   });
 
+  it("loads everything for all, not only what the active goal covers", () => {
+    expect(fetchDays("all", 7, GOAL, NOW)).toBe(3650);
+    expect(fetchDays("all", 7, null, NOW)).toBe(3650);
+  });
+
   it("asks for a year when there is no goal to measure against", () => {
     expect(fetchDays("goal", 7, null, NOW)).toBe(365);
   });

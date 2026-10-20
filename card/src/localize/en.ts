@@ -59,7 +59,20 @@ export const en = {
   "goal.title": "Goal",
   "goal.derived": "calculated",
   "goal.derived_hint":
-    "One of these two is calculated from the other. Change the goal mode in the integration options to set it directly.",
+    "One of these two is calculated from the other. Change how the goal is defined under Change goal on the integration page to set it directly.",
+  "goal.none":
+    "No goal is active. Pick one in the goal list, or add one on the integration page.",
+
+  "goals.title": "Goals",
+  "goals.empty": "No goals yet.",
+  "goals.manage": "Add, change or delete goals on the integration page",
+  "goals.active": "active",
+  "goals.activate": "Activate",
+  "goals.reached": "Reached at {value} {unit}",
+  "goals.missed": "Ended at {value} {unit}",
+  "goals.planned": "Not started",
+  "goals.running": "Running",
+  "goals.no_reading": "No reading in its period",
 
   "progress.weight": "Weight",
   "progress.time": "Time",
@@ -111,6 +124,7 @@ export const en = {
   "editor.band": "Tolerance band",
   "editor.plan": "Plan line",
   "editor.projection": "Projection",
+  "editor.goals": "Other goals",
   "editor.points": "Reading dots",
   "editor.today": "Today marker",
   "editor.grid": "Grid lines",
@@ -127,6 +141,7 @@ export const en = {
   "editor.show_record_date": "Day of the reading",
   "editor.show_restart": "Restart today",
   "editor.show_goal_editor": "Goal settings",
+  "editor.show_goals": "Goal list",
 } as const;
 
 export type TranslationKey = keyof typeof en;

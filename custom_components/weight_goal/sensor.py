@@ -64,7 +64,9 @@ def _status_attributes(manager: WeightGoalManager) -> dict[str, Any]:
     week is the authoritative input, so it can render the derived one read only
     instead of offering an edit that would be rejected.
     """
+    goal = manager.active_goal
     return {
+        "active_goal": None if goal is None else goal.title,
         "direction": manager.direction,
         "tolerance": manager.tolerance,
         "goal_mode": manager.goal_mode,

@@ -44,6 +44,11 @@ class StartTodayButton(WeightGoalEntity, ButtonEntity):
         """Initialise."""
         super().__init__(manager, KEY_START_TODAY)
 
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; it moves the start of that goal."""
+        return self._manager.active_goal is not None
+
     async def async_press(self) -> None:
         """Stage the change; the confirm button applies it."""
         await self._manager.async_arm_start_today()

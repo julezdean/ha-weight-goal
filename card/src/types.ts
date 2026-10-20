@@ -69,6 +69,7 @@ export const ENTITY_KEYS = {
   ],
   date: ["start_date", "end_date", "manual_date"],
   button: ["start_today", "confirm_start_today", "record_weight"],
+  select: ["active_goal"],
   sensor: [
     "weight",
     "target_weight_today",
@@ -87,6 +88,7 @@ export type EntityKey =
   | (typeof ENTITY_KEYS.number)[number]
   | (typeof ENTITY_KEYS.date)[number]
   | (typeof ENTITY_KEYS.button)[number]
+  | (typeof ENTITY_KEYS.select)[number]
   | (typeof ENTITY_KEYS.sensor)[number];
 
 /** Resolved entity ids, keyed by the integration's internal key. */
@@ -105,6 +107,7 @@ export interface GoalContext {
 
 export type Status =
   | "no_goal"
+  | "upcoming"
   | "on_track"
   | "ahead"
   | "behind"
@@ -112,6 +115,21 @@ export type Status =
   | "ended";
 
 export type Direction = "lose" | "maintain" | "gain";
+
+/** One goal of the list, as the active goal select carries it. */
+export interface GoalSummary {
+  id: string;
+  name: string;
+  active: boolean;
+  goalMode: "target" | "rate";
+  startWeight: number | null;
+  targetWeight: number | null;
+  ratePerWeek: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  /** Only once the last day is over: the last weight inside the period. */
+  result: { weight: number; timestamp: number; reached: boolean } | null;
+}
 
 export type MeasurementSource =
   | "manual"
@@ -146,6 +164,8 @@ export interface SeriesStyle {
 export interface ChartVisibility {
   band?: boolean;
   plan?: boolean;
+  /** The plan lines of the goals that are not active. */
+  goals?: boolean;
   projection?: boolean;
   points?: boolean;
   average?: boolean;
@@ -183,6 +203,7 @@ export interface ChartOptions {
     plan?: SeriesStyle;
     band?: SeriesStyle;
     projection?: SeriesStyle;
+    goals?: SeriesStyle;
   };
 }
 
@@ -234,6 +255,8 @@ export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_record_date?: boolean;
   show_restart?: boolean;
   show_goal_editor?: boolean;
+  /** The list of every goal, with the outcome of the finished ones. */
+  show_goals?: boolean;
   badges?: BadgeConfig[];
   chart?: ChartOptions;
 }

@@ -234,6 +234,7 @@ export function chartSchema(t: T): FormSchema[] {
           schema: [
             { name: "band", selector: { boolean: {} } },
             { name: "plan", selector: { boolean: {} } },
+            { name: "goals", selector: { boolean: {} } },
             { name: "average", selector: { boolean: {} } },
             { name: "projection", selector: { boolean: {} } },
             { name: "points", selector: { boolean: {} } },
@@ -266,6 +267,7 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   band: "editor.band",
   plan: "editor.plan",
   projection: "editor.projection",
+  goals: "editor.goals",
   points: "editor.points",
   today: "editor.today",
   grid: "editor.grid",
@@ -280,6 +282,7 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   show_record_date: "editor.show_record_date",
   show_restart: "editor.show_restart",
   show_goal_editor: "editor.show_goal_editor",
+  show_goals: "editor.show_goals",
 };
 
 const HELPER_KEYS: Record<string, TranslationKey> = {

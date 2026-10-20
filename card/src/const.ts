@@ -2,7 +2,7 @@ export const DOMAIN = "weight_goal";
 
 export const CARD_TYPE = "weight-goal-card";
 
-export const CARD_VERSION = "0.10.0";
+export const CARD_VERSION = "0.11.0-beta.1";
 
 export const REPOSITORY = "https://github.com/julezdean/ha-weight-goal";
 
@@ -10,6 +10,7 @@ export const REPOSITORY = "https://github.com/julezdean/ha-weight-goal";
  * only thing carrying the meaning. */
 export const STATUS_COLOR: Record<string, string> = {
   no_goal: "var(--disabled-text-color, #9e9e9e)",
+  upcoming: "var(--secondary-text-color, #727272)",
   on_track: "var(--primary-color, #03a9f4)",
   ahead: "var(--success-color, #43a047)",
   behind: "var(--warning-color, #ffa726)",
@@ -19,6 +20,7 @@ export const STATUS_COLOR: Record<string, string> = {
 
 export const STATUS_ICON: Record<string, string> = {
   no_goal: "mdi:target-variant",
+  upcoming: "mdi:calendar-clock",
   on_track: "mdi:check-circle-outline",
   ahead: "mdi:rocket-launch-outline",
   behind: "mdi:alert-circle-outline",

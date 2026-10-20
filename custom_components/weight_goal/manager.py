@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import (
     EVENT_CORE_CONFIG_UPDATE,
     STATE_UNAVAILABLE,
@@ -37,6 +37,8 @@ from homeassistant.util import dt as dt_util
 from .const import (
     ARM_TIMEOUT_SECONDS,
     CATCHUP_GRACE_HOURS,
+    CONF_ACTIVATE,
+    CONF_ACTIVE_GOAL,
     CONF_END_DATE,
     CONF_GOAL_MODE,
     CONF_ALLOW_MANUAL,
@@ -76,7 +78,6 @@ from .const import (
     MANUAL_BACKDATE_TIME,
     MAX_MEASUREMENTS,
     MAX_PROJECTION_DAYS,
-    MODE_RATE,
     PROJECTION_WINDOW_DAYS,
     RETENTION_DAYS,
     SOURCE_IMPORT,
@@ -90,7 +91,9 @@ from .const import (
     STATUS_NO_GOAL,
     STATUS_ON_TRACK,
     STATUS_REACHED,
+    STATUS_UPCOMING,
     STORAGE_VERSION,
+    SUBENTRY_GOAL,
 )
 from .helpers import (
     direction_of,
@@ -98,6 +101,7 @@ from .helpers import (
     goal_weeks,
     linear_rate,
     next_local_midnight,
+    normalise_goal,
     parse_date,
     planned_weight,
     wall_clock,
@@ -148,8 +152,13 @@ class StoredState:
     manual_pending: bool = False
     manual_date: str | None = None
     status: str = STATUS_NO_GOAL
-    goal_reached_fired: bool = False
-    goal_ended_fired: bool = False
+    #: Per goal, keyed by subentry id: which one off events have fired. Kept
+    #: per goal so switching back to an old goal does not announce its end
+    #: or its success a second time.
+    goal_flags: dict[str, dict[str, bool]] = field(default_factory=dict)
+    #: Per goal: the last weight inside its period, kept for when the
+    #: measurements it came from have aged out of the history.
+    goal_results: dict[str, dict[str, Any]] = field(default_factory=dict)
     overdue_fired_for: str | None = None
     last_rollover: str | None = None
     last_source_entity: str | None = None
@@ -248,7 +257,6 @@ class WeightGoalManager:
         self._listeners: list[CALLBACK_TYPE] = []
         self._unsubscribers: list[CALLBACK_TYPE] = []
         self._timers: dict[str, CALLBACK_TYPE] = {}
-        self._applying_options = False
         self._start_today_armed_until: datetime | None = None
         self._ceiling_logged = False
 
@@ -268,8 +276,8 @@ class WeightGoalManager:
 
     @property
     def goal_mode(self) -> str:
-        """Which of target weight and rate is the authoritative input."""
-        return self._option(CONF_GOAL_MODE, DEFAULT_GOAL_MODE)
+        """Which of target weight and rate is the input of the active goal."""
+        return self._goal_value(CONF_GOAL_MODE) or DEFAULT_GOAL_MODE
 
     @property
     def min_weight(self) -> float:
@@ -321,33 +329,147 @@ class WeightGoalManager:
             self._option(CONF_RECALCULATION_INTERVAL, DEFAULT_RECALCULATION_INTERVAL)
         )
 
+    # ------------------------------------------------------------------
+    # Goals
+    # ------------------------------------------------------------------
+
+    @property
+    def goals(self) -> list[ConfigSubentry]:
+        """Every goal of this person, earliest start first."""
+        goals = [
+            sub
+            for sub in self.entry.subentries.values()
+            if sub.subentry_type == SUBENTRY_GOAL
+        ]
+        return sorted(
+            goals,
+            key=lambda sub: (str(sub.data.get(CONF_START_DATE) or ""), sub.title),
+        )
+
+    @property
+    def active_goal(self) -> ConfigSubentry | None:
+        """The goal everything is computed against, if one is active."""
+        goal_id = self.entry.options.get(CONF_ACTIVE_GOAL)
+        goal = self.entry.subentries.get(goal_id) if goal_id else None
+        if goal is None or goal.subentry_type != SUBENTRY_GOAL:
+            return None
+        return goal
+
+    def _goal_value(self, key: str) -> Any:
+        goal = self.active_goal
+        return None if goal is None else goal.data.get(key)
+
+    def _goal_number(self, key: str) -> float | None:
+        raw = self._goal_value(key)
+        return None if raw is None else float(raw)
+
     @property
     def start_weight(self) -> float | None:
-        """Configured start weight."""
-        raw = self.entry.options.get(CONF_START_WEIGHT)
-        return None if raw is None else float(raw)
+        """Start weight of the active goal."""
+        return self._goal_number(CONF_START_WEIGHT)
 
     @property
     def target_weight(self) -> float | None:
-        """Configured or derived target weight."""
-        raw = self.entry.options.get(CONF_TARGET_WEIGHT)
-        return None if raw is None else float(raw)
+        """Configured or derived target weight of the active goal."""
+        return self._goal_number(CONF_TARGET_WEIGHT)
 
     @property
     def rate_per_week(self) -> float | None:
-        """Configured or derived weekly rate."""
-        raw = self.entry.options.get(CONF_RATE_PER_WEEK)
-        return None if raw is None else float(raw)
+        """Configured or derived weekly rate of the active goal."""
+        return self._goal_number(CONF_RATE_PER_WEEK)
 
     @property
     def start_date(self) -> date | None:
-        """Configured start date."""
-        return parse_date(self.entry.options.get(CONF_START_DATE))
+        """Start date of the active goal."""
+        return parse_date(self._goal_value(CONF_START_DATE))
 
     @property
     def end_date(self) -> date | None:
-        """Configured end date."""
-        return parse_date(self.entry.options.get(CONF_END_DATE))
+        """End date of the active goal."""
+        return parse_date(self._goal_value(CONF_END_DATE))
+
+    @property
+    def started(self) -> bool:
+        """Whether the active goal has begun.
+
+        Before its first day there is no plan to be measured against: the line
+        would sit flat on the start weight and call a weight from before the
+        goal ahead or behind of it.
+        """
+        start = self.start_date
+        return start is not None and dt_util.now(self.zone).date() >= start
+
+    def _goal_flag(self, name: str) -> bool:
+        goal = self.active_goal
+        if goal is None:
+            return False
+        return bool(self._state.goal_flags.get(goal.subentry_id, {}).get(name))
+
+    def _set_goal_flag(self, name: str, value: bool) -> None:
+        goal = self.active_goal
+        if goal is not None:
+            self._state.goal_flags.setdefault(goal.subentry_id, {})[name] = value
+
+    def goal_result(self, goal: ConfigSubentry) -> dict[str, Any] | None:
+        """How a goal came out, once its last day is over.
+
+        The weight is the last one recorded inside the goal period. When the
+        history no longer reaches back that far the value remembered from an
+        earlier look is used instead.
+        """
+        data = goal.data
+        start = parse_date(data.get(CONF_START_DATE))
+        end = parse_date(data.get(CONF_END_DATE))
+        start_weight = data.get(CONF_START_WEIGHT)
+        target = data.get(CONF_TARGET_WEIGHT)
+        if start is None or end is None or start_weight is None or target is None:
+            return None
+        if dt_util.now(self.zone).date() <= end:
+            return None
+
+        begin = wall_clock(start, self.zone)
+        finish = wall_clock(end + timedelta(days=1), self.zone)
+        inside = [
+            m for m in self._state.measurements if begin <= m.timestamp < finish
+        ]
+        if inside:
+            result = {
+                "weight": inside[-1].weight,
+                "timestamp": inside[-1].timestamp.isoformat(),
+            }
+            self._state.goal_results[goal.subentry_id] = result
+        else:
+            result = self._state.goal_results.get(goal.subentry_id)
+        if result is None:
+            return None
+
+        weight = float(result["weight"])
+        sign = direction_sign(direction_of(float(start_weight), float(target)))
+        if sign == 0:
+            reached = abs(weight - float(target)) <= self.tolerance
+        else:
+            reached = (float(target) - weight) * sign <= 0
+        return {**result, "reached": reached}
+
+    def goals_payload(self) -> list[dict[str, Any]]:
+        """Every goal with its values and its outcome, for cards and services."""
+        active = self.active_goal
+        return [
+            {
+                "id": goal.subentry_id,
+                "name": goal.title,
+                "active": active is not None
+                and goal.subentry_id == active.subentry_id,
+                CONF_GOAL_MODE: goal.data.get(CONF_GOAL_MODE, DEFAULT_GOAL_MODE),
+                CONF_START_WEIGHT: goal.data.get(CONF_START_WEIGHT),
+                CONF_TARGET_WEIGHT: goal.data.get(CONF_TARGET_WEIGHT),
+                CONF_RATE_PER_WEEK: goal.data.get(CONF_RATE_PER_WEEK),
+                CONF_START_DATE: goal.data.get(CONF_START_DATE),
+                CONF_END_DATE: goal.data.get(CONF_END_DATE),
+                "result": self.goal_result(goal),
+            }
+            for goal in self.goals
+        ]
 
     @property
     def manual_weight(self) -> float | None:
@@ -434,7 +556,9 @@ class WeightGoalManager:
 
     @property
     def target_weight_today(self) -> float | None:
-        """Planned weight right now."""
+        """Planned weight right now; unknown before the goal begins."""
+        if not self.started:
+            return None
         return self.planned_weight_at(dt_util.utcnow())
 
     @property
@@ -468,9 +592,10 @@ class WeightGoalManager:
         """Share of the planned weight change already achieved, in percent.
 
         Clamped to 0-100, so overshooting the target reads as 100. Undefined
-        for a maintain goal, where start and target are the same.
+        for a maintain goal, where start and target are the same, and before
+        the goal begins, when nothing done so far belongs to it.
         """
-        if not self.has_goal or self.current_weight is None:
+        if not self.has_goal or not self.started or self.current_weight is None:
             return None
         span = self.target_weight - self.start_weight
         if abs(span) < 1e-9:
@@ -550,6 +675,8 @@ class WeightGoalManager:
         """Compute the status from the current facts and the previous status."""
         if not self.has_goal:
             return STATUS_NO_GOAL
+        if not self.started:
+            return STATUS_UPCOMING
 
         today = dt_util.now(self.zone).date()
         if today > self.end_date:
@@ -594,8 +721,8 @@ class WeightGoalManager:
                     CONF_SCRIPT_STATUS_CHANGED,
                 )
 
-        if new_status == STATUS_REACHED and not self._state.goal_reached_fired:
-            self._state.goal_reached_fired = True
+        if new_status == STATUS_REACHED and not self._goal_flag("reached"):
+            self._set_goal_flag("reached", True)
             if fire_events:
                 await self._async_dispatch(
                     EVENT_GOAL_REACHED,
@@ -606,7 +733,12 @@ class WeightGoalManager:
                     CONF_SCRIPT_GOAL_REACHED,
                 )
         elif new_status not in (STATUS_REACHED, STATUS_ENDED):
-            self._state.goal_reached_fired = False
+            self._set_goal_flag("reached", False)
+
+        # Looked at here so the remembered outcome of every goal stays current
+        # while its readings are still in the history.
+        for goal in self.goals:
+            self.goal_result(goal)
 
         await self._async_save()
         self._notify()
@@ -865,57 +997,82 @@ class WeightGoalManager:
     # Goal configuration
     # ------------------------------------------------------------------
 
-    def _normalise(self, options: dict[str, Any]) -> dict[str, Any]:
-        """Fill in the derived value so start, target, rate and dates agree."""
-        merged = dict(options)
-        start_weight = merged.get(CONF_START_WEIGHT)
-        weeks = goal_weeks(
-            parse_date(merged.get(CONF_START_DATE)),
-            parse_date(merged.get(CONF_END_DATE)),
-        )
-        if start_weight is None or weeks is None:
-            return merged
-
-        mode = merged.get(CONF_GOAL_MODE, DEFAULT_GOAL_MODE)
-        if mode == MODE_RATE:
-            rate = merged.get(CONF_RATE_PER_WEEK)
-            if rate is not None:
-                merged[CONF_TARGET_WEIGHT] = round(
-                    float(start_weight) + float(rate) * weeks, 3
-                )
-        else:
-            target = merged.get(CONF_TARGET_WEIGHT)
-            if target is not None:
-                merged[CONF_RATE_PER_WEEK] = round(
-                    (float(target) - float(start_weight)) / weeks, 4
-                )
-        return merged
-
     async def async_set_goal(self, **changes: Any) -> None:
-        """Apply goal changes atomically and store the normalised result."""
-        options = dict(self.entry.options)
+        """Change values of the active goal atomically and normalise them."""
+        goal = self.active_goal
+        if goal is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_active_goal"
+            )
+        data = dict(goal.data)
         for key, value in changes.items():
             if isinstance(value, date) and not isinstance(value, datetime):
-                options[key] = value.isoformat()
+                data[key] = value.isoformat()
             else:
-                options[key] = value
-        options = self._normalise(options)
-        self.hass.config_entries.async_update_entry(self.entry, options=options)
+                data[key] = value
+        self.hass.config_entries.async_update_subentry(
+            self.entry, goal, data=normalise_goal(data)
+        )
 
     async def async_reset_goal(self) -> None:
-        """Clear the goal without touching the measurement history."""
+        """Leave the goal list without an active goal.
+
+        The goal itself stays in the list, with its outcome; removing it is
+        what deleting the goal is for.
+        """
+        await self.async_set_active_goal(None)
+
+    async def async_set_active_goal(self, goal_id: str | None) -> None:
+        """Make another goal the active one, or none."""
+        if goal_id is not None:
+            goal = self.entry.subentries.get(goal_id)
+            if goal is None or goal.subentry_type != SUBENTRY_GOAL:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="unknown_goal"
+                )
         options = dict(self.entry.options)
-        for key in (
-            CONF_START_WEIGHT,
-            CONF_TARGET_WEIGHT,
-            CONF_RATE_PER_WEEK,
-            CONF_START_DATE,
-            CONF_END_DATE,
-        ):
-            options.pop(key, None)
-        self._state.goal_reached_fired = False
-        self._state.goal_ended_fired = False
+        if goal_id is None:
+            options.pop(CONF_ACTIVE_GOAL, None)
+        else:
+            options[CONF_ACTIVE_GOAL] = goal_id
         self.hass.config_entries.async_update_entry(self.entry, options=options)
+
+    def _tidy_goals(self) -> bool:
+        """Settle what goal flows and deletions left behind.
+
+        A new goal asks to become active through a flag in its data, because
+        its id is unknown until its flow has finished. A deleted goal can leave
+        the active id pointing nowhere, and its remembered state behind.
+        Returns whether the entry was changed, in which case another update is
+        on its way.
+        """
+        changed = False
+        options = dict(self.entry.options)
+        for goal in self.goals:
+            # Normalised as well: the flows always do, so a goal that is not
+            # comes from a hand edit, and the entities should never show a
+            # target and a rate that disagree.
+            data = normalise_goal(goal.data)
+            if data.pop(CONF_ACTIVATE, False):
+                options[CONF_ACTIVE_GOAL] = goal.subentry_id
+            if data != dict(goal.data):
+                self.hass.config_entries.async_update_subentry(
+                    self.entry, goal, data=data
+                )
+                changed = True
+
+        active = options.get(CONF_ACTIVE_GOAL)
+        if active is not None and active not in self.entry.subentries:
+            options.pop(CONF_ACTIVE_GOAL)
+        if options != dict(self.entry.options):
+            self.hass.config_entries.async_update_entry(self.entry, options=options)
+            changed = True
+
+        known = set(self.entry.subentries)
+        for remembered in (self._state.goal_flags, self._state.goal_results):
+            for goal_id in [key for key in remembered if key not in known]:
+                del remembered[goal_id]
+        return changed
 
     @property
     def start_today_armed(self) -> bool:
@@ -1016,14 +1173,27 @@ class WeightGoalManager:
                 manual_pending=bool(raw.get("manual_pending")),
                 manual_date=raw.get("manual_date"),
                 status=raw.get("status", STATUS_NO_GOAL),
-                goal_reached_fired=bool(raw.get("goal_reached_fired")),
-                goal_ended_fired=bool(raw.get("goal_ended_fired")),
+                goal_flags={
+                    str(key): dict(value)
+                    for key, value in (raw.get("goal_flags") or {}).items()
+                },
+                goal_results={
+                    str(key): dict(value)
+                    for key, value in (raw.get("goal_results") or {}).items()
+                },
                 overdue_fired_for=raw.get("overdue_fired_for"),
                 last_rollover=raw.get("last_rollover"),
                 last_source_entity=raw.get("last_source_entity"),
                 last_source_weight=raw.get("last_source_weight"),
             )
             self._trim()
+            if "goal_flags" not in raw and (goal := self.active_goal) is not None:
+                # Stored before goals had their own flags; they belonged to the
+                # one goal there was, which the entry migration made active.
+                self._state.goal_flags[goal.subentry_id] = {
+                    "reached": bool(raw.get("goal_reached_fired")),
+                    "ended": bool(raw.get("goal_ended_fired")),
+                }
             if "last_source_entity" not in raw:
                 # Stored by an older version, which did not remember what the
                 # sensor last said. Its newest sensor reading is the same thing.
@@ -1039,12 +1209,8 @@ class WeightGoalManager:
                     self._state.last_source_entity = self.source_entity
                     self._state.last_source_weight = last.weight
 
-        # A missing normalisation can only happen after a manual edit of the
-        # options; fix it up front so the entities never show an inconsistent
-        # pair of values.
-        normalised = self._normalise(dict(self.entry.options))
-        if normalised != dict(self.entry.options):
-            self.hass.config_entries.async_update_entry(self.entry, options=normalised)
+        # A goal flow may have finished while the entry was not loaded.
+        self._tidy_goals()
 
         self._subscribe_source()
         self._unsubscribers.append(
@@ -1068,23 +1234,14 @@ class WeightGoalManager:
         await self._async_save()
 
     async def async_options_updated(self) -> None:
-        """Apply an options change without reloading the entry."""
-        if self._applying_options:
+        """Apply an options or goal change without reloading the entry."""
+        if self._tidy_goals():
             return
-        self._applying_options = True
-        try:
-            normalised = self._normalise(dict(self.entry.options))
-            if normalised != dict(self.entry.options):
-                self.hass.config_entries.async_update_entry(
-                    self.entry, options=normalised
-                )
-                return
-            self._subscribe_source()
-            self._schedule_all()
-            await self.async_refresh()
-        finally:
-            self._applying_options = False
-        self._start_today_armed_until: datetime | None = None
+        # A staged start today previews values that may just have changed.
+        self._start_today_armed_until = None
+        self._subscribe_source()
+        self._schedule_all()
+        await self.async_refresh()
 
     # ------------------------------------------------------------------
     # Entity notification
@@ -1193,10 +1350,13 @@ class WeightGoalManager:
 
     def _schedule_goal_end(self) -> None:
         self._cancel("goal_end")
-        if self.end_date is None or self._state.goal_ended_fired:
+        if self.end_date is None or self._goal_flag("ended"):
             return
         when = wall_clock(self.end_date + timedelta(days=1), self.zone)
         if when <= dt_util.utcnow():
+            # A goal made active after its end. Its end is not news; only a
+            # restart close to the end replays it, see _async_catch_up.
+            self._set_goal_flag("ended", True)
             return
         self._timers["goal_end"] = async_track_point_in_time(
             self.hass, self._handle_goal_end, when
@@ -1206,7 +1366,7 @@ class WeightGoalManager:
         await self._async_fire_goal_ended()
 
     async def _async_fire_goal_ended(self) -> None:
-        self._state.goal_ended_fired = True
+        self._set_goal_flag("ended", True)
         await self._async_dispatch(
             EVENT_GOAL_ENDED,
             {
@@ -1289,13 +1449,13 @@ class WeightGoalManager:
         now = dt_util.utcnow()
         grace = timedelta(hours=CATCHUP_GRACE_HOURS)
 
-        if self.end_date is not None and not self._state.goal_ended_fired:
+        if self.end_date is not None and not self._goal_flag("ended"):
             due = wall_clock(self.end_date + timedelta(days=1), self.zone)
             if due <= now:
                 if now - due <= grace:
                     await self._async_fire_goal_ended()
                 else:
-                    self._state.goal_ended_fired = True
+                    self._set_goal_flag("ended", True)
                     _LOGGER.debug(
                         "%s: goal end at %s missed by more than %s hours, not replayed",
                         self.entry.title,
@@ -1317,9 +1477,11 @@ class WeightGoalManager:
     async def _async_dispatch(
         self, event_type: str, data: dict[str, Any], script_option: str
     ) -> None:
+        goal = self.active_goal
         payload = {
             "entry_id": self.entry.entry_id,
             "name": self.entry.title,
+            "goal": None if goal is None else goal.title,
             **data,
         }
         self.hass.bus.async_fire(event_type, payload)
@@ -1352,8 +1514,8 @@ class WeightGoalManager:
                 "manual_pending": self._state.manual_pending,
                 "manual_date": self._state.manual_date,
                 "status": self._state.status,
-                "goal_reached_fired": self._state.goal_reached_fired,
-                "goal_ended_fired": self._state.goal_ended_fired,
+                "goal_flags": self._state.goal_flags,
+                "goal_results": self._state.goal_results,
                 "overdue_fired_for": self._state.overdue_fired_for,
                 "last_rollover": self._state.last_rollover,
                 "last_source_entity": self._state.last_source_entity,

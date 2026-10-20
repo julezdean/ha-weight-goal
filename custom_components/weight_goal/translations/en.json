@@ -3,15 +3,13 @@
     "step": {
       "user": {
         "title": "Road to Weight Goal",
-        "description": "One entry tracks one person. You can add more entries later.",
+        "description": "One entry tracks one person. Goals are added to it afterwards, with Add goal on the entry.",
         "data": {
           "name": "Name",
-          "source_entity": "Weight source",
-          "goal_mode": "Define the goal by"
+          "source_entity": "Weight source"
         },
         "data_description": {
-          "source_entity": "A sensor that reports a weight in kilograms, for example from a smart scale. Leave empty to enter weights by hand.",
-          "goal_mode": "The value you pick is the one you set; the other one is calculated from it."
+          "source_entity": "A sensor that reports a weight in kilograms, for example from a smart scale. Leave empty to enter weights by hand."
         }
       }
     },
@@ -35,7 +33,6 @@
         "title": "Settings",
         "data": {
           "source_entity": "Weight source",
-          "goal_mode": "Define the goal by",
           "min_weight": "Lowest plausible weight",
           "max_weight": "Highest plausible weight",
           "tolerance": "On track tolerance",
@@ -68,6 +65,63 @@
     },
     "error": {
       "invalid_range": "The lowest plausible weight must be below the highest."
+    }
+  },
+  "config_subentries": {
+    "goal": {
+      "initiate_flow": {
+        "user": "Add goal",
+        "reconfigure": "Change goal"
+      },
+      "entry_type": "Goal",
+      "step": {
+        "user": {
+          "title": "New goal",
+          "data": {
+            "name": "Name",
+            "goal_mode": "Define the goal by",
+            "activate": "Make it the active goal"
+          },
+          "data_description": {
+            "name": "Shown in the goal list and in the active goal selection.",
+            "goal_mode": "The value you pick is the one you set; the other one is calculated from it.",
+            "activate": "Only one goal is active at a time; the sensors, the status and the events follow it. Switch it off to record a past goal."
+          }
+        },
+        "reconfigure": {
+          "title": "Change goal",
+          "data": {
+            "name": "Name",
+            "goal_mode": "Define the goal by"
+          },
+          "data_description": {
+            "goal_mode": "The value you pick is the one you set; the other one is calculated from it."
+          }
+        },
+        "values": {
+          "title": "Goal",
+          "data": {
+            "start_weight": "Start weight",
+            "start_date": "Start date",
+            "end_date": "End date",
+            "target_weight": "Target weight",
+            "rate_per_week": "Change per week"
+          },
+          "data_description": {
+            "end_date": "The last day counts towards the goal in full.",
+            "rate_per_week": "Negative to lose weight, positive to gain."
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Enter a name.",
+        "name_taken": "Another goal already has this name.",
+        "reserved_name": "This name is reserved for \"no goal\".",
+        "invalid_dates": "The end date must be at least one day after the start date."
+      },
+      "abort": {
+        "reconfigure_successful": "The goal was changed."
+      }
     }
   },
   "selector": {
@@ -141,6 +195,7 @@
         "name": "Status",
         "state": {
           "no_goal": "No goal",
+          "upcoming": "Upcoming",
           "ahead": "Ahead",
           "on_track": "On track",
           "behind": "Behind",
@@ -153,6 +208,14 @@
       },
       "time_progress": {
         "name": "Time progress"
+      }
+    },
+    "select": {
+      "active_goal": {
+        "name": "Active goal",
+        "state": {
+          "none": "No goal"
+        }
       }
     }
   },
@@ -198,8 +261,8 @@
       }
     },
     "reset_goal": {
-      "name": "Reset goal",
-      "description": "Clears the goal. Recorded weights are kept."
+      "name": "Deactivate goal",
+      "description": "Leaves no goal active. The goal stays in the list, and recorded weights are kept."
     },
     "ignore_last_measurement": {
       "name": "Ignore last measurement",
@@ -254,7 +317,7 @@
   },
   "exceptions": {
     "derived_value": {
-      "message": "This value is calculated from the others. Change the goal mode in the options if you want to set it directly. Current mode: {mode}."
+      "message": "This value is calculated from the others. Change how the goal is defined under Change goal if you want to set it directly. Current mode: {mode}."
     },
     "no_target": {
       "message": "No Road to Weight Goal entity was targeted."
@@ -282,6 +345,12 @@
     },
     "date_in_the_future": {
       "message": "A reading can only be recorded for today or an earlier day."
+    },
+    "no_active_goal": {
+      "message": "No goal is active. Pick one under Active goal, or add one on the entry."
+    },
+    "unknown_goal": {
+      "message": "There is no goal with that name."
     }
   }
 }

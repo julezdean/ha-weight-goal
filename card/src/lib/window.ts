@@ -11,6 +11,9 @@ import type { Goal } from "./plan";
 
 const DAY_MS = 86_400_000;
 
+/** The furthest back the measurement service accepts. */
+const MAX_FETCH_DAYS = 3650;
+
 /** The run up a moving average needs before it is honest at the left edge. */
 const MIN_BUFFER_DAYS = 7;
 
@@ -68,10 +71,15 @@ export function fetchDays(
   if (typeof chosen === "number") {
     return Math.ceil(chosen) + 1;
   }
+  if (chosen === "all") {
+    // Everything means everything, not everything since the active goal:
+    // the goals before it are what a long view is for.
+    return MAX_FETCH_DAYS;
+  }
   if (!goal) {
     return 365;
   }
   const buffer = Math.max(MIN_BUFFER_DAYS, Math.ceil(average ?? 0));
   const days = Math.ceil((now - goal.begin) / DAY_MS) + buffer;
-  return days > 0 ? Math.min(3650, Math.max(30, days)) : 365;
+  return days > 0 ? Math.min(MAX_FETCH_DAYS, Math.max(30, days)) : 365;
 }

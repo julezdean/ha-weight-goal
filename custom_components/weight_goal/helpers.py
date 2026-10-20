@@ -6,11 +6,25 @@ tested on its own.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta, tzinfo
+from typing import Any
 
 from homeassistant.util import dt as dt_util
 
-from .const import DIRECTION_GAIN, DIRECTION_LOSE, DIRECTION_MAINTAIN
+from .const import (
+    CONF_END_DATE,
+    CONF_GOAL_MODE,
+    CONF_RATE_PER_WEEK,
+    CONF_START_DATE,
+    CONF_START_WEIGHT,
+    CONF_TARGET_WEIGHT,
+    DEFAULT_GOAL_MODE,
+    DIRECTION_GAIN,
+    DIRECTION_LOSE,
+    DIRECTION_MAINTAIN,
+    MODE_RATE,
+)
 
 #: A goal whose start and target differ by less than this is a "maintain" goal.
 MAINTAIN_EPSILON = 0.01
@@ -81,6 +95,38 @@ def goal_weeks(start: date | None, end: date | None) -> float | None:
     if (end - start).days < 1:
         return None
     return ((end - start).days + 1) / 7
+
+
+def normalise_goal(goal: Mapping[str, Any]) -> dict[str, Any]:
+    """Fill in the derived value so start, target, rate and dates agree.
+
+    Whichever of target weight and rate the goal mode names is the input; the
+    other one is computed from it, so the two can never drift apart. Without a
+    start weight or a valid range there is nothing to derive from, and the goal
+    is returned as it is.
+    """
+    merged = dict(goal)
+    start_weight = merged.get(CONF_START_WEIGHT)
+    weeks = goal_weeks(
+        parse_date(merged.get(CONF_START_DATE)),
+        parse_date(merged.get(CONF_END_DATE)),
+    )
+    if start_weight is None or weeks is None:
+        return merged
+
+    if merged.get(CONF_GOAL_MODE, DEFAULT_GOAL_MODE) == MODE_RATE:
+        rate = merged.get(CONF_RATE_PER_WEEK)
+        if rate is not None:
+            merged[CONF_TARGET_WEIGHT] = round(
+                float(start_weight) + float(rate) * weeks, 3
+            )
+    else:
+        target = merged.get(CONF_TARGET_WEIGHT)
+        if target is not None:
+            merged[CONF_RATE_PER_WEEK] = round(
+                (float(target) - float(start_weight)) / weeks, 4
+            )
+    return merged
 
 
 def direction_of(start_weight: float, target_weight: float) -> str:

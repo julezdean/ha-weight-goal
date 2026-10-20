@@ -21,6 +21,8 @@ from custom_components.weight_goal.const import (
     CONF_START_WEIGHT,
 )
 
+from .conftest import goal_data
+
 NOW = datetime(2026, 3, 1, 12, 0, tzinfo=dt_util.UTC)
 
 
@@ -52,8 +54,8 @@ async def test_first_press_changes_nothing(
     await _press(hass, "button.julien_start_today")
     await hass.async_block_till_done()
 
-    assert mock_entry.options[CONF_START_WEIGHT] == 80.0
-    assert mock_entry.options[CONF_START_DATE] == "2026-03-01"
+    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 80.0
+    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-01"
 
 
 async def test_confirm_applies_the_change(
@@ -71,10 +73,10 @@ async def test_confirm_applies_the_change(
     await _press(hass, "button.julien_confirm_start_today")
     await hass.async_block_till_done()
 
-    assert mock_entry.options[CONF_START_WEIGHT] == 78.3
-    assert mock_entry.options[CONF_START_DATE] == "2026-03-15"
-    assert mock_entry.options[CONF_END_DATE] == "2026-05-09"
-    assert mock_entry.options[CONF_RATE_PER_WEEK] == pytest.approx(-0.4125, abs=0.0001)
+    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 78.3
+    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-15"
+    assert goal_data(mock_entry)[CONF_END_DATE] == "2026-05-09"
+    assert goal_data(mock_entry)[CONF_RATE_PER_WEEK] == pytest.approx(-0.4125, abs=0.0001)
 
 
 async def test_confirm_button_is_unavailable_until_armed(
@@ -114,7 +116,7 @@ async def test_the_pending_change_expires(
     assert (
         hass.states.get("button.julien_confirm_start_today").state == "unavailable"
     )
-    assert mock_entry.options[CONF_START_DATE] == "2026-03-01"
+    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-01"
 
 
 async def test_preview_shows_what_would_change(
@@ -156,7 +158,7 @@ async def test_confirming_twice_applies_once(
     await hass.async_block_till_done()
 
     # Still the date of the first confirmation.
-    assert mock_entry.options[CONF_START_DATE] == "2026-03-01"
+    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-01"
 
 
 async def test_arming_does_not_survive_a_restart(

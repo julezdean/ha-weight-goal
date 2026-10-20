@@ -1,12 +1,16 @@
 /**
  * The chart.
  *
- * Four layers, drawn back to front:
+ * Five layers, drawn back to front:
  *
- *   1. the tolerance band around the plan, so "on track" is a visible zone
- *   2. the plan line, straight from start weight to target weight
- *   3. the projection, dashed, from the last reading to `projected_date`
- *   4. the measurements, with an optional moving average on top
+ *   1. the goals that are not active, as thin lines over their own period
+ *   2. the tolerance band around the plan, so "on track" is a visible zone
+ *   3. the plan line, straight from start weight to target weight
+ *   4. the projection, dashed, from the last reading to `projected_date`
+ *   5. the measurements, with an optional moving average on top
+ *
+ * Plan and band cover the goal period and nothing else. Before and after it
+ * there is no plan, so a reading there is not compared with one either.
  *
  * Plain SVG rather than a charting library: the band between two sloping lines,
  * the theme variables and the per-series style options are all a few attributes
@@ -20,7 +24,7 @@ import { classMap } from "lit/directives/class-map.js";
 import { STATUS_COLOR } from "../const";
 import { formatDate, formatNumber } from "../lib/format";
 import { localize, translator } from "../localize";
-import { plannedWeight } from "../lib/plan";
+import { plannedWeight, type Goal } from "../lib/plan";
 import {
   buildAreaPath,
   buildPath,
@@ -77,7 +81,19 @@ const DEFAULT_STYLES: Record<string, Required<SeriesStyle>> = {
     opacity: 1,
     point_size: 0,
   },
+  goals: {
+    color: "var(--secondary-text-color, #727272)",
+    width: 1.5,
+    dash: "",
+    opacity: 0.45,
+    point_size: 0,
+  },
 };
+
+/** Whether an instant lies inside the goal period. */
+function within(goal: Goal | null, t: number): goal is Goal {
+  return goal !== null && t >= goal.begin && t <= goal.finish;
+}
 
 @customElement("wg-chart")
 export class WgChart extends LitElement {
@@ -232,11 +248,13 @@ export class WgChart extends LitElement {
           </defs>
           ${this._renderGrid(scale, padLeft, padRight, width, y, showAxis)}
           <g clip-path=${`url(#${clipId})`}>
+            ${this._renderOtherGoals(model, from, to, x, y)}
             ${this._renderBand(model, from, to, x, y)}
             ${this._renderPlan(model, from, to, x, y)}
             ${this._renderProjection(model, points, x, y)}
             ${this._renderSeries(toPoints(points), toPoints(averaged), shape)}
             ${this._renderPoints(points, x, y, model)}
+            ${this._renderGoalLabels(model, from, to, x, y)}
           </g>
           ${this._renderToday(from, to, x, padTop, plotHeight)}
           ${showAxis ? this._renderTimeAxis(from, to, x, height) : nothing}
@@ -287,7 +305,7 @@ export class WgChart extends LitElement {
       // own start and target instead would stretch a 30 day view across the
       // whole goal range and flatten the readings into a straight line.
       const band = this._shown("band", true) ? model.tolerance : 0;
-      for (const point of this._planPoints(model, from, to)) {
+      for (const point of this._planPoints(model.goal, from, to)) {
         values.push(point.v + band, point.v - band);
       }
     }
@@ -341,7 +359,7 @@ export class WgChart extends LitElement {
       return nothing;
     }
     const style = this._style("band");
-    const edges = this._planPoints(model, from, to);
+    const edges = this._planPoints(model.goal, from, to);
     const upper = edges.map((p) => ({ x: x(p.t), y: y(p.v + model.tolerance) }));
     const lower = edges.map((p) => ({ x: x(p.t), y: y(p.v - model.tolerance) }));
     const path = buildAreaPath(upper, lower);
@@ -352,19 +370,87 @@ export class WgChart extends LitElement {
                      fill-opacity=${style.opacity} stroke="none"></path>`;
   }
 
-  /** The plan as a handful of vertices; it is straight, but it is clamped at
-   * both ends of the goal window, so it needs the corner points. */
+  /** The part of a plan that is on screen: its period cut to the window.
+   * Empty when the two do not overlap. */
   private _planPoints(
-    model: GoalModel,
+    goal: Goal,
     from: number,
     to: number,
   ): Array<{ t: number; v: number }> {
-    const goal = model.goal!;
-    const stops = [from, goal.begin, goal.finish, to]
-      .filter((t) => t >= from && t <= to)
-      .sort((a, b) => a - b);
-    const unique = stops.filter((t, i) => i === 0 || t !== stops[i - 1]);
-    return unique.map((t) => ({ t, v: plannedWeight(goal, t) }));
+    const start = Math.max(from, goal.begin);
+    const end = Math.min(to, goal.finish);
+    if (end <= start) {
+      return [];
+    }
+    return [start, end].map((t) => ({ t, v: plannedWeight(goal, t) }));
+  }
+
+  /**
+   * The other goals, quieter than the active one and without a band: they
+   * may overlap it and each other, and stacked bands would be unreadable.
+   * The names are drawn separately, on top of the readings.
+   */
+  private _renderOtherGoals(
+    model: GoalModel,
+    from: number,
+    to: number,
+    x: (t: number) => number,
+    y: (v: number) => number,
+  ) {
+    if (!this._shown("goals", true) || !model.otherGoals.length) {
+      return nothing;
+    }
+    const style = this._style("goals");
+    const colour = this._colour("goals");
+    const lines = model.otherGoals.map(({ summary, goal }) => {
+      const points = this._planPoints(goal, from, to);
+      if (points.length < 2) {
+        return nothing;
+      }
+      const last = points[points.length - 1];
+      const ends = last.t === goal.finish;
+      const xy = points.map((p) => ({ x: x(p.t), y: y(p.v) }));
+      return svg`
+        <path d=${buildPath(xy, "linear")} fill="none" stroke=${colour}
+              stroke-width=${style.width} stroke-dasharray=${style.dash || nothing}
+              stroke-opacity=${style.opacity} stroke-linecap="round"
+              data-goal=${summary.name}></path>
+        ${
+          ends
+            ? svg`<circle cx=${x(last.t)} cy=${y(last.v)} r="2.5" fill=${colour}
+                          fill-opacity=${style.opacity}></circle>`
+            : nothing
+        }
+      `;
+    });
+    return svg`<g>${lines}</g>`;
+  }
+
+  /**
+   * The name at the end of each other goal, so the lines can be told apart
+   * without a legend. Above the readings rather than with the lines: a goal
+   * the weight followed has its readings sitting right on top of its line.
+   */
+  private _renderGoalLabels(
+    model: GoalModel,
+    from: number,
+    to: number,
+    x: (t: number) => number,
+    y: (v: number) => number,
+  ) {
+    if (!this._shown("goals", true) || !model.otherGoals.length) {
+      return nothing;
+    }
+    const labels = model.otherGoals.map(({ summary, goal }) => {
+      const points = this._planPoints(goal, from, to);
+      if (points.length < 2) {
+        return nothing;
+      }
+      const last = points[points.length - 1];
+      return svg`<text class="goal-label" x=${x(last.t) - 4} y=${y(last.v) - 6}
+                       text-anchor="end">${summary.name}</text>`;
+    });
+    return svg`<g>${labels}</g>`;
   }
 
   private _renderPlan(
@@ -378,10 +464,13 @@ export class WgChart extends LitElement {
       return nothing;
     }
     const style = this._style("plan");
-    const points = this._planPoints(model, from, to).map((p) => ({
+    const points = this._planPoints(model.goal, from, to).map((p) => ({
       x: x(p.t),
       y: y(p.v),
     }));
+    if (points.length < 2) {
+      return nothing;
+    }
     return svg`
       <path d=${buildPath(points, "linear")} fill="none"
             stroke=${this._colour("plan")} stroke-width=${style.width}
@@ -468,7 +557,7 @@ export class WgChart extends LitElement {
       .filter((_, i) => i % stride === 0 || i === points.length - 1)
       .map((m) => {
         const outside =
-          model.goal !== null &&
+          within(model.goal, m.t) &&
           Math.abs(m.v - plannedWeight(model.goal, m.t)) > model.tolerance;
         return svg`<circle cx=${x(m.t)} cy=${y(m.v)} r=${style.point_size}
                            fill=${outside ? "var(--card-background-color, #fff)" : colour}
@@ -535,7 +624,9 @@ export class WgChart extends LitElement {
       return nothing;
     }
     const point = points[this._hover];
-    const planned = model.goal ? plannedWeight(model.goal, point.t) : null;
+    const planned = within(model.goal, point.t)
+      ? plannedWeight(model.goal, point.t)
+      : null;
     const delta = planned === null ? null : point.v - planned;
     return html`<div
       class=${classMap({ tooltip: true, right: this._hover > points.length / 2 })}
@@ -635,6 +726,15 @@ export class WgChart extends LitElement {
       fill: var(--secondary-text-color, #727272);
       font-size: 11px;
       font-family: inherit;
+    }
+    .goal-label {
+      fill: var(--secondary-text-color, #727272);
+      font-size: 10px;
+      font-family: inherit;
+      paint-order: stroke;
+      stroke: var(--card-background-color, #fff);
+      stroke-width: 3px;
+      stroke-linejoin: round;
     }
     .today {
       stroke: var(--secondary-text-color, #727272);
