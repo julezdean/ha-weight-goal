@@ -61,7 +61,6 @@ export interface GoalModel {
   manualPending: boolean;
   manualAvailable: boolean;
   recordAvailable: boolean;
-  startTodayArmed: boolean;
 
   goal: Goal | null;
   /** Every goal of the person, earliest start first; empty on integration
@@ -146,7 +145,6 @@ export function readGoal(
     // never set reads `unknown` too. Only `unavailable` means "not offered".
     manualAvailable: isPresent(manualState),
     recordAvailable: isPresent(stateOf(hass, e.record_weight)),
-    startTodayArmed: isPresent(stateOf(hass, e.confirm_start_today)),
 
     goal,
     goals,

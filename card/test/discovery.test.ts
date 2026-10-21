@@ -10,8 +10,6 @@ const KEYS = [
   ["number", "manual_weight"],
   ["date", "start_date"],
   ["date", "end_date"],
-  ["button", "start_today"],
-  ["button", "confirm_start_today"],
   ["button", "record_weight"],
   ["select", "active_goal"],
   ["sensor", "weight"],

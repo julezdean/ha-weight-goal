@@ -32,16 +32,13 @@ export class WgActions extends LitElement {
 
   @property({ attribute: false }) public model?: GoalModel;
 
-  /** The two actions are independent: a scale user may never type a weight,
-   * and a goal nobody restarts does not need the button in the way. */
+  /** A scale user may never type a weight. */
   @property({ type: Boolean }) public showRecord = true;
 
   /** With the day field hidden, a reading is always today's: an invisible
    * date that quietly files a reading under another day is the trap the reset
    * after each save exists to avoid. */
   @property({ type: Boolean }) public showRecordDate = true;
-
-  @property({ type: Boolean }) public showRestart = true;
 
   @state() private _draft: string | null = null;
 
@@ -61,10 +58,8 @@ export class WgActions extends LitElement {
     const entities = model.context.entities;
     const canEnter =
       this.showRecord && model.manualAvailable && !!entities.manual_weight;
-    const canStartToday =
-      this.showRestart && !!entities.start_today && model.goal !== null;
 
-    if (!canEnter && !canStartToday) {
+    if (!canEnter) {
       return nothing;
     }
 
@@ -118,28 +113,7 @@ export class WgActions extends LitElement {
               </button>
             `
           : nothing}
-        ${canStartToday
-          ? model.startTodayArmed
-            ? html`<button
-                  class="control confirm"
-                  @click=${() => this._press(model, "confirm_start_today")}
-                >
-                  <ha-icon icon="mdi:check-bold"></ha-icon>
-                  <span>${t("actions.confirm_restart")}</span>
-                </button>`
-            : html`<button
-                class="control"
-                title=${t("actions.restart_title")}
-                @click=${() => this._press(model, "start_today")}
-              >
-                <ha-icon icon="mdi:calendar-arrow-right"></ha-icon>
-                <span>${t("actions.restart")}</span>
-              </button>`
-          : nothing}
       </div>
-      ${canStartToday && model.startTodayArmed
-        ? html`<p class="hint muted">${t("actions.restart_hint")}</p>`
-        : nothing}
     `;
   }
 
@@ -231,22 +205,6 @@ export class WgActions extends LitElement {
     }
   }
 
-  private async _press(model: GoalModel, key: "start_today" | "confirm_start_today"): Promise<void> {
-    const entityId = model.context.entities[key];
-    if (!this.hass || !entityId) {
-      return;
-    }
-    this._busy = true;
-    try {
-      await this.hass.callService("button", "press", {}, { entity_id: entityId });
-      this._error = null;
-    } catch (error) {
-      this._error = errorMessage(this.hass, error);
-    } finally {
-      this._busy = false;
-    }
-  }
-
   public static override styles = [
     sharedStyles,
     css`
@@ -274,17 +232,8 @@ export class WgActions extends LitElement {
       button.control {
         flex: 1 1 auto;
       }
-      button.control.confirm {
-        background: var(--success-color, #43a047);
-        color: var(--text-primary-color, #fff);
-      }
       button.control ha-icon {
         --mdc-icon-size: 18px;
-      }
-      .hint {
-        margin: 8px 0 0;
-        font-size: 12px;
-        line-height: 1.4;
       }
       .error {
         display: flex;

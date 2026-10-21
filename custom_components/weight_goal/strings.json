@@ -159,14 +159,8 @@
       }
     },
     "button": {
-      "start_today": {
-        "name": "Start today"
-      },
       "record_weight": {
         "name": "Confirm weight"
-      },
-      "confirm_start_today": {
-        "name": "Confirm start today"
       }
     },
     "sensor": {
@@ -257,6 +251,44 @@
         "end_date": {
           "name": "End date",
           "description": "Last day of the goal."
+        }
+      }
+    },
+    "create_goal": {
+      "name": "Create goal",
+      "description": "Adds a goal to the list, like Add goal on the integration page.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Must differ from the other goals of this person."
+        },
+        "goal_mode": {
+          "name": "Define the goal by",
+          "description": "Which of target weight and change per week you set; the other is calculated."
+        },
+        "start_weight": {
+          "name": "Start weight",
+          "description": "Defaults to the latest weight."
+        },
+        "target_weight": {
+          "name": "Target weight",
+          "description": "Required when the goal is defined by target weight."
+        },
+        "rate_per_week": {
+          "name": "Change per week",
+          "description": "Required when the goal is defined by change per week. Negative to lose weight."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "Defaults to today."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Last day of the goal; it counts in full."
+        },
+        "activate": {
+          "name": "Make it the active goal",
+          "description": "Only one goal is active at a time."
         }
       }
     },
@@ -351,6 +383,24 @@
     },
     "unknown_goal": {
       "message": "There is no goal with that name."
+    },
+    "invalid_name": {
+      "message": "Enter a name for the goal."
+    },
+    "name_taken": {
+      "message": "Another goal already has this name."
+    },
+    "reserved_name": {
+      "message": "\"none\" stands for no goal and cannot name one."
+    },
+    "invalid_dates": {
+      "message": "The end date must be at least one day after the start date."
+    },
+    "no_start_weight": {
+      "message": "There is no weight yet to start from. Pass a start weight."
+    },
+    "missing_goal_value": {
+      "message": "Pass {field}; the goal is defined by it."
     }
   }
 }

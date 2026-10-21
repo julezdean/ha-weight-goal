@@ -68,7 +68,7 @@ export const ENTITY_KEYS = {
     "manual_weight",
   ],
   date: ["start_date", "end_date", "manual_date"],
-  button: ["start_today", "confirm_start_today", "record_weight"],
+  button: ["record_weight"],
   select: ["active_goal"],
   sensor: [
     "weight",
@@ -249,11 +249,9 @@ export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
   show_badges?: boolean;
   show_chart?: boolean;
   show_progress?: boolean;
-  /** The two actions, independent of each other. Both off is no action row. */
   show_record?: boolean;
   /** The day field next to the weight. Off means every reading is today's. */
   show_record_date?: boolean;
-  show_restart?: boolean;
   show_goal_editor?: boolean;
   /** The list of every goal, with the outcome of the finished ones. */
   show_goals?: boolean;

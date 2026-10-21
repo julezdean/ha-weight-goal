@@ -6,13 +6,14 @@ tested on its own.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACTIVE_GOAL_NONE,
     CONF_END_DATE,
     CONF_GOAL_MODE,
     CONF_RATE_PER_WEEK,
@@ -95,6 +96,22 @@ def goal_weeks(start: date | None, end: date | None) -> float | None:
     if (end - start).days < 1:
         return None
     return ((end - start).days + 1) / 7
+
+
+def goal_name_error(name: str, taken: Iterable[str]) -> str | None:
+    """Why a goal name cannot be used, or ``None`` when it can.
+
+    Names pick the goal in the active goal select, so they must differ from
+    the other goals of the person, ignoring case, and from the option that
+    stands for no goal. The key doubles as flow error and exception key.
+    """
+    if not name:
+        return "invalid_name"
+    if name.casefold() == ACTIVE_GOAL_NONE:
+        return "reserved_name"
+    if any(name.casefold() == other.casefold() for other in taken):
+        return "name_taken"
+    return None
 
 
 def normalise_goal(goal: Mapping[str, Any]) -> dict[str, Any]:

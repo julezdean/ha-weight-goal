@@ -125,9 +125,7 @@ KEY_REMAINING: Final = "remaining"
 KEY_PROJECTED_DATE: Final = "projected_date"
 KEY_STATUS: Final = "status"
 KEY_LAST_MEASUREMENT: Final = "last_measurement"
-KEY_START_TODAY: Final = "start_today"
 KEY_RECORD_WEIGHT: Final = "record_weight"
-KEY_CONFIRM_START_TODAY: Final = "confirm_start_today"
 KEY_ACTIVE_GOAL: Final = "active_goal"
 
 # --- Statuses -----------------------------------------------------------------
@@ -166,6 +164,7 @@ SERVICE_IGNORE_LAST_MEASUREMENT: Final = "ignore_last_measurement"
 SERVICE_GET_MEASUREMENTS: Final = "get_measurements"
 SERVICE_IMPORT_HISTORY: Final = "import_history"
 SERVICE_DELETE_MEASUREMENT: Final = "delete_measurement"
+SERVICE_CREATE_GOAL: Final = "create_goal"
 
 ATTR_WEIGHT: Final = "weight"
 ATTR_TIMESTAMP: Final = "timestamp"
@@ -185,11 +184,6 @@ DEFAULT_MATCH_MINUTES: Final = 5
 #: morning reading from a scale, so a value typed in by hand afterwards becomes
 #: the one that day ends on rather than being overruled by the scale.
 MANUAL_BACKDATE_TIME: Final = time(12, 0)
-
-#: How long a pending "start today" stays confirmable. Short on purpose:
-#: the point is to catch a stray tap, and a confirmation still standing
-#: minutes later is one nobody connects to what they pressed any more.
-ARM_TIMEOUT_SECONDS: Final = 30
 
 # --- Events -------------------------------------------------------------------
 

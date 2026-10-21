@@ -159,14 +159,8 @@
       }
     },
     "button": {
-      "start_today": {
-        "name": "Heute als Start"
-      },
       "record_weight": {
         "name": "Gewicht bestätigen"
-      },
-      "confirm_start_today": {
-        "name": "Heute als Start bestätigen"
       }
     },
     "sensor": {
@@ -257,6 +251,44 @@
         "end_date": {
           "name": "Zieldatum",
           "description": "Letzter Tag des Ziels."
+        }
+      }
+    },
+    "create_goal": {
+      "name": "Ziel anlegen",
+      "description": "Fügt der Liste ein Ziel hinzu, wie Ziel hinzufügen auf der Seite der Integration.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Muss sich von den anderen Zielen dieser Person unterscheiden."
+        },
+        "goal_mode": {
+          "name": "Ziel festlegen über",
+          "description": "Welchen Wert du angibst, Zielgewicht oder Änderung pro Woche; der andere wird berechnet."
+        },
+        "start_weight": {
+          "name": "Startgewicht",
+          "description": "Standard ist das letzte Gewicht."
+        },
+        "target_weight": {
+          "name": "Zielgewicht",
+          "description": "Nötig, wenn das Ziel über das Zielgewicht festgelegt wird."
+        },
+        "rate_per_week": {
+          "name": "Änderung pro Woche",
+          "description": "Nötig, wenn das Ziel über die Änderung pro Woche festgelegt wird. Negativ zum Abnehmen."
+        },
+        "start_date": {
+          "name": "Startdatum",
+          "description": "Standard ist heute."
+        },
+        "end_date": {
+          "name": "Enddatum",
+          "description": "Letzter Tag des Ziels; er zählt voll."
+        },
+        "activate": {
+          "name": "Zum aktiven Ziel machen",
+          "description": "Es ist immer nur ein Ziel aktiv."
         }
       }
     },
@@ -351,6 +383,24 @@
     },
     "unknown_goal": {
       "message": "Es gibt kein Ziel mit diesem Namen."
+    },
+    "invalid_name": {
+      "message": "Gib dem Ziel einen Namen."
+    },
+    "name_taken": {
+      "message": "Ein anderes Ziel heißt bereits so."
+    },
+    "reserved_name": {
+      "message": "„none“ steht für kein Ziel und kann kein Ziel benennen."
+    },
+    "invalid_dates": {
+      "message": "Das Enddatum muss mindestens einen Tag nach dem Startdatum liegen."
+    },
+    "no_start_weight": {
+      "message": "Es gibt noch kein Gewicht, von dem aus gestartet werden kann. Gib ein Startgewicht an."
+    },
+    "missing_goal_value": {
+      "message": "Gib {field} an; darüber ist das Ziel festgelegt."
     }
   }
 }

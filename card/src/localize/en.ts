@@ -44,11 +44,6 @@ export const en = {
   "badge.source.statistics": "Daily average",
 
   "actions.save": "Save reading",
-  "actions.restart": "Restart today",
-  "actions.restart_title": "Move the goal start to today",
-  "actions.confirm_restart": "Confirm restart",
-  "actions.restart_hint":
-    "Confirming sets the start weight to your latest reading and the start date to today. The end date stays.",
   "actions.enter_number": "Enter a number first.",
   "actions.failed":
     "That did not work. Check the Home Assistant log for details.",
@@ -61,11 +56,11 @@ export const en = {
   "goal.derived_hint":
     "One of these two is calculated from the other. Change how the goal is defined under Change goal on the integration page to set it directly.",
   "goal.none":
-    "No goal is active. Pick one in the goal list, or add one on the integration page.",
+    "No goal is active. Pick one in the goal list, or add one there with New goal.",
 
   "goals.title": "Goals",
   "goals.empty": "No goals yet.",
-  "goals.manage": "Add, change or delete goals on the integration page",
+  "goals.manage": "Change or delete goals on the integration page",
   "goals.active": "active",
   "goals.activate": "Activate",
   "goals.reached": "Reached at {value} {unit}",
@@ -73,6 +68,20 @@ export const en = {
   "goals.planned": "Not started",
   "goals.running": "Running",
   "goals.no_reading": "No reading in its period",
+  "goals.new": "New goal",
+  "goals.form.name": "Name",
+  "goals.form.mode": "Define the goal by",
+  "goals.form.mode_target": "Target weight",
+  "goals.form.mode_rate": "Change per week",
+  "goals.form.start_date": "Start date",
+  "goals.form.start_weight": "Start weight in {unit}",
+  "goals.form.end_date": "End date",
+  "goals.form.target_weight": "Target weight in {unit}",
+  "goals.form.rate": "Change per week in {unit}",
+  "goals.form.activate": "Make it the active goal",
+  "goals.form.save": "Add goal",
+  "goals.form.cancel": "Cancel",
+  "goals.form.incomplete": "Fill in the end date and the goal value as numbers.",
 
   "progress.weight": "Weight",
   "progress.time": "Time",
@@ -139,7 +148,6 @@ export const en = {
   "editor.show_progress": "Progress bars",
   "editor.show_record": "Save reading",
   "editor.show_record_date": "Day of the reading",
-  "editor.show_restart": "Restart today",
   "editor.show_goal_editor": "Goal settings",
   "editor.show_goals": "Goal list",
 } as const;

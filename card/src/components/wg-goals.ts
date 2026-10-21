@@ -7,18 +7,19 @@ import { todayInZone, zonedMidnight } from "../lib/plan";
 import { localize } from "../localize";
 import { sharedStyles } from "../shared-styles";
 import { errorMessage } from "./wg-actions";
+import "./wg-new-goal";
 import type { GoalModel } from "../lib/goal";
 import type { GoalSummary, HomeAssistant } from "../types";
 
-/** Where goals are added, changed and deleted: the integration's own page. */
+/** Where goals are changed and deleted: the integration's own page. */
 const INTEGRATION_PATH = `/config/integrations/integration/${DOMAIN}`;
 
 /**
  * Every goal of the person, with the outcome of the finished ones.
  *
- * Only a view and a switch. Adding, changing and deleting goals happens in
- * Home Assistant's own dialogs on the integration page, which already know
- * how to ask for a name, validate it and confirm a deletion; the card links
+ * A view, a switch and a way to add a goal. Changing and deleting goals
+ * happens in Home Assistant's own dialogs on the integration page, which
+ * already know how to prefill a goal and confirm a deletion; the card links
  * there instead of growing a second copy of them.
  */
 @customElement("wg-goals")
@@ -46,6 +47,7 @@ export class WgGoals extends LitElement {
           <span>${localize(hass, "goals.title")}</span>
           <span class="count muted">${goals.length}</span>
         </summary>
+        <wg-new-goal .hass=${hass} .model=${model}></wg-new-goal>
         ${goals.length
           ? html`<ul>
               ${goals.map((goal) => this._renderGoal(goal))}

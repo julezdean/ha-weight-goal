@@ -61,6 +61,66 @@ set_goal:
       selector:
         date:
 
+create_goal:
+  target:
+    entity:
+      integration: weight_goal
+      domain: sensor
+  fields:
+    name:
+      required: true
+      example: Summer
+      selector:
+        text:
+    goal_mode:
+      required: false
+      default: target
+      selector:
+        select:
+          options:
+            - target
+            - rate
+          translation_key: goal_mode
+    start_weight:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    target_weight:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    rate_per_week:
+      required: false
+      selector:
+        number:
+          min: -5
+          max: 5
+          step: 0.01
+          mode: box
+    start_date:
+      required: false
+      selector:
+        date:
+    end_date:
+      required: true
+      selector:
+        date:
+    activate:
+      required: false
+      default: true
+      selector:
+        boolean:
+
 reset_goal:
   target:
     entity:

@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
+from homeassistant.const import CONF_NAME
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -29,7 +30,9 @@ from .const import (
     ATTR_TOLERANCE_MINUTES,
     ATTR_WRITE_STATISTICS,
     ATTR_WEIGHT,
+    CONF_ACTIVATE,
     CONF_END_DATE,
+    CONF_GOAL_MODE,
     CONF_RATE_PER_WEEK,
     CONF_START_DATE,
     CONF_SOURCE_ENTITY,
@@ -37,8 +40,10 @@ from .const import (
     CONF_TARGET_WEIGHT,
     DEFAULT_MATCH_MINUTES,
     DOMAIN,
+    GOAL_MODES,
     MODE_RATE,
     MODE_TARGET,
+    SERVICE_CREATE_GOAL,
     SERVICE_DELETE_MEASUREMENT,
     SERVICE_GET_MEASUREMENTS,
     SERVICE_IGNORE_LAST_MEASUREMENT,
@@ -73,6 +78,19 @@ SET_GOAL_SCHEMA = BASE_SCHEMA.extend(
         vol.Optional(CONF_RATE_PER_WEEK): vol.Coerce(float),
         vol.Optional(CONF_START_DATE): cv.date,
         vol.Optional(CONF_END_DATE): cv.date,
+    }
+)
+
+CREATE_GOAL_SCHEMA = BASE_SCHEMA.extend(
+    {
+        vol.Required(CONF_NAME): cv.string,
+        vol.Optional(CONF_GOAL_MODE): vol.In(GOAL_MODES),
+        vol.Optional(CONF_START_WEIGHT): vol.Coerce(float),
+        vol.Optional(CONF_TARGET_WEIGHT): vol.Coerce(float),
+        vol.Optional(CONF_RATE_PER_WEEK): vol.Coerce(float),
+        vol.Optional(CONF_START_DATE): cv.date,
+        vol.Required(CONF_END_DATE): cv.date,
+        vol.Optional(CONF_ACTIVATE, default=True): cv.boolean,
     }
 )
 
@@ -175,6 +193,25 @@ def async_register_services(hass: HomeAssistant) -> None:
                 )
             await manager.async_set_goal(**changes)
 
+    async def handle_create_goal(call: ServiceCall) -> ServiceResponse:
+        goal = {
+            key: call.data.get(key)
+            for key in (
+                CONF_GOAL_MODE,
+                CONF_START_WEIGHT,
+                CONF_TARGET_WEIGHT,
+                CONF_RATE_PER_WEEK,
+                CONF_START_DATE,
+                CONF_END_DATE,
+            )
+        }
+        created: dict[str, str] = {}
+        for manager in _managers(hass, call):
+            created[manager.entry.entry_id] = await manager.async_create_goal(
+                call.data[CONF_NAME], goal, activate=call.data[CONF_ACTIVATE]
+            )
+        return {"goals": created}
+
     async def handle_reset_goal(call: ServiceCall) -> None:
         for manager in _managers(hass, call):
             await manager.async_reset_goal()
@@ -233,6 +270,13 @@ def async_register_services(hass: HomeAssistant) -> None:
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(DOMAIN, SERVICE_SET_GOAL, handle_set_goal, SET_GOAL_SCHEMA)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CREATE_GOAL,
+        handle_create_goal,
+        CREATE_GOAL_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
     hass.services.async_register(DOMAIN, SERVICE_RESET_GOAL, handle_reset_goal, BASE_SCHEMA)
     hass.services.async_register(
         DOMAIN, SERVICE_IGNORE_LAST_MEASUREMENT, handle_ignore_last, BASE_SCHEMA

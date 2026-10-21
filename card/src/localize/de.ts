@@ -44,11 +44,6 @@ export const de: Record<TranslationKey, string> = {
   "badge.source.statistics": "Tagesmittel",
 
   "actions.save": "Messung speichern",
-  "actions.restart": "Heute neu starten",
-  "actions.restart_title": "Den Zielstart auf heute legen",
-  "actions.confirm_restart": "Neustart bestätigen",
-  "actions.restart_hint":
-    "Beim Bestätigen werden Startgewicht auf die letzte Messung und Startdatum auf heute gesetzt. Das Zieldatum bleibt.",
   "actions.enter_number": "Bitte zuerst eine Zahl eingeben.",
   "actions.failed":
     "Das hat nicht geklappt. Die Einzelheiten stehen im Home-Assistant-Log.",
@@ -62,11 +57,11 @@ export const de: Record<TranslationKey, string> = {
   "goal.derived_hint":
     "Einer der beiden Werte wird aus dem anderen berechnet. Unter Ziel ändern auf der Seite der Integration legst du fest, welcher direkt eingestellt wird.",
   "goal.none":
-    "Kein Ziel ist aktiv. Wähle eins in der Zielliste oder füge eins auf der Seite der Integration hinzu.",
+    "Kein Ziel ist aktiv. Wähle eins in der Zielliste oder lege dort mit Neues Ziel eins an.",
 
   "goals.title": "Ziele",
   "goals.empty": "Noch keine Ziele.",
-  "goals.manage": "Ziele auf der Seite der Integration hinzufügen, ändern oder löschen",
+  "goals.manage": "Ziele auf der Seite der Integration ändern oder löschen",
   "goals.active": "aktiv",
   "goals.activate": "Aktivieren",
   "goals.reached": "Erreicht mit {value} {unit}",
@@ -74,6 +69,20 @@ export const de: Record<TranslationKey, string> = {
   "goals.planned": "Noch nicht begonnen",
   "goals.running": "Läuft",
   "goals.no_reading": "Keine Messung im Zeitraum",
+  "goals.new": "Neues Ziel",
+  "goals.form.name": "Name",
+  "goals.form.mode": "Ziel festlegen über",
+  "goals.form.mode_target": "Zielgewicht",
+  "goals.form.mode_rate": "Änderung pro Woche",
+  "goals.form.start_date": "Startdatum",
+  "goals.form.start_weight": "Startgewicht in {unit}",
+  "goals.form.end_date": "Enddatum",
+  "goals.form.target_weight": "Zielgewicht in {unit}",
+  "goals.form.rate": "Änderung pro Woche in {unit}",
+  "goals.form.activate": "Zum aktiven Ziel machen",
+  "goals.form.save": "Ziel anlegen",
+  "goals.form.cancel": "Abbrechen",
+  "goals.form.incomplete": "Trag das Enddatum und den Zielwert als Zahl ein.",
 
   "progress.weight": "Gewicht",
   "progress.time": "Zeit",
@@ -143,7 +152,6 @@ export const de: Record<TranslationKey, string> = {
   "editor.show_progress": "Fortschrittsbalken",
   "editor.show_record": "Messung speichern",
   "editor.show_record_date": "Tag der Messung",
-  "editor.show_restart": "Heute neu starten",
   "editor.show_goal_editor": "Zieleinstellungen",
   "editor.show_goals": "Zielliste",
 };

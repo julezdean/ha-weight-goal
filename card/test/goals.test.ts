@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "../src/components/wg-goal-editor";
 import "../src/components/wg-goals";
+import "../src/components/wg-new-goal";
 import { readGoal, readGoals } from "../src/lib/goal";
 import type { GoalContext, HomeAssistant } from "../src/types";
 
@@ -157,5 +158,102 @@ describe("the goal editor without an active goal", () => {
     const el = await render("wg-goal-editor", { hass, model, open: true });
     expect(el.shadowRoot!.querySelector(".grid")).toBeNull();
     expect(el.shadowRoot!.textContent).toContain("No goal is active");
+  });
+});
+
+describe("adding a goal from the card", () => {
+  async function openForm(): Promise<{ hass: HomeAssistant; root: ShadowRoot; el: HTMLElement }> {
+    const hass = buildHass(GOALS);
+    const model = { ...readGoal(hass, CONTEXT), currentWeight: 78.4 };
+    const el = await render<HTMLElement>("wg-new-goal", { hass, model });
+    const root = el.shadowRoot!;
+    (root.querySelector("button.open") as HTMLButtonElement).click();
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+    return { hass, root, el };
+  }
+
+  async function type(el: HTMLElement, field: HTMLInputElement, value: string) {
+    field.value = value;
+    field.dispatchEvent(new Event("input"));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+  }
+
+  async function submit(el: HTMLElement, root: ShadowRoot) {
+    root.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+    await Promise.resolve();
+  }
+
+  it("suggests today and the latest weight, but sends what is typed", async () => {
+    const { hass, root, el } = await openForm();
+    const inputs = [...root.querySelectorAll("input")] as HTMLInputElement[];
+    const [name, startDate, startWeight, endDate, value] = inputs;
+    expect(startWeight.value).toBe("78.4");
+    expect(startDate.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    await type(el, name, "Summer");
+    await type(el, startDate, "2026-11-01");
+    await type(el, endDate, "2027-01-31");
+    await type(el, value, "75,5");
+    await submit(el, root);
+
+    expect(hass.callService).toHaveBeenCalledWith(
+      "weight_goal",
+      "create_goal",
+      {
+        name: "Summer",
+        goal_mode: "target",
+        start_date: "2026-11-01",
+        start_weight: 78.4,
+        end_date: "2027-01-31",
+        target_weight: 75.5,
+        activate: true,
+      },
+      { entity_id: "sensor.julien_status" },
+    );
+    // Closed again once the goal exists.
+    expect(root.querySelector("form")).toBeNull();
+  });
+
+  it("sends the rate when the goal is defined by it", async () => {
+    const { hass, root, el } = await openForm();
+    const select = root.querySelector("select")!;
+    select.value = "rate";
+    select.dispatchEvent(new Event("change"));
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+    const inputs = [...root.querySelectorAll("input")] as HTMLInputElement[];
+    await type(el, inputs[0], "Steady");
+    await type(el, inputs[3], "2027-01-31");
+    await type(el, inputs[4], "-0.25");
+    (root.querySelector("input[type=checkbox]") as HTMLInputElement).click();
+    await submit(el, root);
+
+    const data = (hass.callService as ReturnType<typeof vi.fn>).mock.calls[0][2];
+    expect(data.rate_per_week).toBe(-0.25);
+    expect(data.target_weight).toBeUndefined();
+    expect(data.goal_mode).toBe("rate");
+    expect(data.activate).toBe(false);
+  });
+
+  it("asks for the missing numbers instead of sending them", async () => {
+    const { hass, root, el } = await openForm();
+    await submit(el, root);
+    expect(hass.callService).not.toHaveBeenCalled();
+    expect(root.querySelector(".error")!.textContent).toContain("end date");
+  });
+
+  it("shows what the integration refused and keeps the form open", async () => {
+    const { hass, root, el } = await openForm();
+    (hass.callService as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Another goal already has this name."),
+    );
+    const inputs = [...root.querySelectorAll("input")] as HTMLInputElement[];
+    await type(el, inputs[0], "Spring");
+    await type(el, inputs[3], "2027-01-31");
+    await type(el, inputs[4], "75");
+    await submit(el, root);
+    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+    expect(root.querySelector(".error")!.textContent).toContain("already has this name");
+    expect(root.querySelector("form")).not.toBeNull();
   });
 });

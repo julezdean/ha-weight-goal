@@ -21,6 +21,11 @@ All notable changes to this project are documented here. The format follows
   `show.goals` switches them off.
 - The card has a goal list, newest first, with the outcome of finished goals
   and a button to activate another one. `show_goals` switches it off.
+- **New goal** in the card's goal list adds a goal from the dashboard, for
+  everyone who sees it rather than only administrators. Start date and start
+  weight are suggested as today and the latest weight, not fixed.
+- `weight_goal.create_goal` adds a goal from an automation, with the same
+  defaults and the same refusals as the dialog, and returns the new goal's id.
 - Status `upcoming` for an active goal that begins on a later day.
 - Every event carries `goal`, the name of the active goal.
 - `get_measurements` returns the goal list next to the readings.
@@ -44,6 +49,16 @@ All notable changes to this project are documented here. The format follows
   `weight_progress` are unknown.
 - A card that shows only chosen sections now also needs `show_goals: false`,
   or the goal list appears below it after the update.
+
+### Removed
+
+- `button.<name>_start_today` and `button.<name>_confirm_start_today`, with
+  the card's **Restart today** and its `show_restart` option. Moving the start
+  of the active goal to today rewrote its plan for every day before, which is
+  what the goal list exists to prevent; add a new goal instead. The two
+  entities are removed from the entity registry on start up, so automations
+  and dashboards that press them need changing. A card config that still sets
+  `show_restart` keeps loading.
 
 ## [0.10.0] - 2026-10-04
 

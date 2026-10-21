@@ -16,7 +16,7 @@ notified, spoken or displayed. For the dashboard a card ships with the
 integration, from the whole goal down to the chart on its own. Nothing is
 polled, and nothing leaves your instance.
 
-![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the day and weight fields and the restart button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
+![Four configurations of the same card in a row, on a dark theme. First the whole card: name, end date and status, the current weight and how far it is from plan, the four goal numbers as badges, the chart with the plan line and the tolerance band, and the weight and time progress bars. Then a wide chart in custom colours, showing the moving average over the raw line. Then the card without its chart, showing the day and weight fields and the save button. Last a tight axis over the last thirty days, where the individual readings are visible as dots.](https://raw.githubusercontent.com/julezdean/ha-weight-goal/main/docs/card.png)
 
 ## Features
 
@@ -81,16 +81,24 @@ Goals are added afterwards, see [Goals](#goals). Everything else lives under **C
 
 ## Goals
 
-A person has a list of goals. **Add goal** on the entry, under **Settings →
-Devices & Services → Road to Weight Goal**, creates one; the three dot menu
-next to a goal changes or deletes it.
+A person has a list of goals. There are three ways to add one, all asking for
+the same fields and refusing the same mistakes:
+
+- **Add goal** on the entry, under **Settings → Devices & Services → Road to
+  Weight Goal**. Only administrators get there.
+- **New goal** in the goal list of the card, for everyone who sees the
+  dashboard.
+- The action `weight_goal.create_goal`, for automations and scripts.
+
+The three dot menu next to a goal on the integration page changes or deletes
+it.
 
 | Field | Meaning |
 | --- | --- |
 | Name | Shown in the goal list and in `select.<name>_active_goal`, so it has to differ from the other goals of the person. `none` is taken. |
 | Define the goal by | Target weight, or change per week. Whichever you pick is the value you set; the other is calculated. Each goal has its own. |
 | Make it the active goal | On by default. Switch it off to record a goal from the past, or one you plan for later. |
-| Start weight, start and end date | The end day counts towards the goal in full. |
+| Start weight, start and end date | Today and the latest weight are suggested, nothing more. The end day counts towards the goal in full. |
 | Target weight or change per week | Whichever the goal is defined by. |
 
 Goals may overlap and leave gaps between them. **Exactly one goal is active, or
@@ -129,8 +137,6 @@ instance runs in. Display names are translated.
 | `date.<name>_start_date` | Date | First day of the goal. |
 | `date.<name>_end_date` | Date | Last day of the goal. It counts towards the goal in full. |
 | `button.<name>_record_weight` | Button | Records the weight held above. Unavailable while there is nothing to confirm. |
-| `button.<name>_start_today` | Button | Stages a move of the goal start to today. Changes nothing on its own. |
-| `button.<name>_confirm_start_today` | Button | Applies it: start weight becomes the latest measurement, start date becomes today, the end date is untouched. Available for thirty seconds after staging. |
 | `sensor.<name>_weight` | Sensor | The current weight. This is the entity with the history. |
 | `sensor.<name>_target_weight_today` | Sensor | Where the plan says you should be. |
 | `sensor.<name>_deviation` | Sensor | Weight minus plan. Read the sign together with `direction`. |
@@ -142,8 +148,7 @@ instance runs in. Display names are translated.
 | `sensor.<name>_status` | Sensor | Enum, see below. Carries `active_goal`, `direction`, `tolerance`, `goal_mode`, `min_weight`, `max_weight` and `trend_window_days` as attributes, so a card needs this one entity and nothing else to render correctly. |
 | `sensor.<name>_last_measurement` | Sensor | Timestamp of the latest measurement. |
 
-The goal numbers, the goal dates and `start_today` are unavailable while no goal
-is active.
+The goal numbers and the goal dates are unavailable while no goal is active.
 
 ### Status
 
@@ -176,6 +181,7 @@ as good an anchor as the device itself.
 | --- | --- |
 | `weight_goal.record_weight` | Record a weight, optionally with a timestamp. |
 | `weight_goal.set_goal` | Change several values of the active goal in one atomic write. |
+| `weight_goal.create_goal` | Add a goal to the list, see below. |
 | `weight_goal.reset_goal` | Leave no goal active. The goal stays in the list, and recorded weights are kept. |
 | `weight_goal.ignore_last_measurement` | Drop the latest measurement from trend, projection and status. |
 | `weight_goal.delete_measurement` | Remove one measurement by timestamp. |
@@ -230,16 +236,27 @@ are on schedule; read them together:
 That is the same statement `deviation` makes in kilograms and `status` makes as
 a word. Use whichever suits the card you are building.
 
-### Moving the start of the goal
+### Adding a goal from an automation
 
-`start_today` also takes two presses. The first one stages the change and makes
-`confirm_start_today` available for thirty seconds; the second one applies it.
-The
-confirm button carries `new_start_weight`, `new_start_date` and the current
-values as attributes, so you can check what is about to happen before pressing.
+```yaml
+action: weight_goal.create_goal
+target:
+  entity_id: sensor.alex_status
+data:
+  name: Summer
+  target_weight: 75
+  end_date: "2027-06-30"
+```
 
-If you leave it alone, the pending change expires. It is deliberately not kept
-across a restart.
+Start date and start weight default to today and the latest weight, the goal
+is defined by its target weight unless `goal_mode: rate` says otherwise, and
+the new goal becomes active unless `activate: false`. Of `target_weight` and
+`rate_per_week` only the one the goal mode names is used. The response holds
+the id of the new goal.
+
+The action refuses what the dialog refuses: a name another goal of the person
+already has, the name `none`, an end date that is not after the start date, a
+missing goal value, and a missing start weight before the first reading.
 
 ### Removing a wrong measurement
 
@@ -374,7 +391,6 @@ show_hero: false
 show_badges: false
 show_progress: false
 show_record: false
-show_restart: false
 show_goal_editor: false
 show_goals: false
 range: 90
@@ -441,8 +457,8 @@ Only for the card:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor`, `show_goals` | `true` | Individual sections. `show_goals` is the goal list, with the outcome of each finished goal and a button to activate it; adding, changing and deleting goals stays on the integration page, which the list links to. |
-| `show_record`, `show_restart` | `true` | The two actions, independent of each other. Both off is no action row at all. |
+| `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor`, `show_goals` | `true` | Individual sections. `show_goals` is the goal list, with the outcome of each finished goal, a button to activate it and **New goal**; changing and deleting goals stays on the integration page, which the list links to. |
+| `show_record` | `true` | The weight field and its save button. Off is no action row at all. |
 | `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
@@ -804,7 +820,7 @@ cd card && npm run preview
 That serves the repository over HTTP on port 8765 — ES modules do not load over
 `file://` — and prints the URL: <http://localhost:8765/card/preview.html>.
 
-Fifty cards, covering every status, both goal modes, a goal list, both measurement
+Forty-nine cards, covering every status, both goal modes, a goal list, both measurement
 sources, all three ways the card discovers entities, a goal in pounds, the empty
 states (no goal, never weighed, entities missing) and the broken ones (writes
 rejected, readings unavailable, dangling anchor, config that throws). Each one

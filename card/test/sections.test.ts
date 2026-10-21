@@ -17,7 +17,6 @@ const ENTITIES = {
   start_date: "date.julien_start_date",
   manual_weight: "number.julien_manual_weight",
   manual_date: "date.julien_manual_date",
-  start_today: "button.julien_start_today",
   end_date: "date.julien_end_date",
   last_measurement: "sensor.julien_last_measurement",
   trend: "sensor.julien_trend",
@@ -32,7 +31,6 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     [ENTITIES.start_date]: "2026-06-14",
     [ENTITIES.manual_weight]: "unknown",
     [ENTITIES.manual_date]: "2026-09-17",
-    [ENTITIES.start_today]: "unknown",
     [ENTITIES.end_date]: "2026-09-20",
     [ENTITIES.last_measurement]: new Date().toISOString(),
     [ENTITIES.trend]: "-0.6",
@@ -69,7 +67,6 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     manualWeight: null,
     manualDate: null,
     manualPending: false,
-    startTodayArmed: false,
     goal: { begin: 0, finish: 1 },
     goals: [],
     otherGoals: [],
@@ -189,52 +186,16 @@ describe("the two actions", () => {
     [...root.querySelectorAll("button.control")].find((b) =>
       b.textContent?.includes("Save reading"),
     );
-  const restart = (root: ShadowRoot) =>
-    [...root.querySelectorAll("button.control")].find((b) =>
-      b.textContent?.includes("Restart today"),
-    );
-
-  it("shows both by default", async () => {
+  it("shows the reading entry by default", async () => {
     const { hass, model } = build("target");
     const root = (await render("wg-actions", { hass, model })).shadowRoot!;
     expect(save(root)).toBeTruthy();
-    expect(restart(root)).toBeTruthy();
   });
 
-  it("hides the reading entry on its own", async () => {
-    // A scale user never types a weight; the restart button still belongs.
+  it("renders nothing at all with the reading entry off", async () => {
+    // Both off has to mean no action row rather than an empty one.
     const { hass, model } = build("target");
-    const root = (await render("wg-actions", {
-      hass,
-      model,
-      showRecord: false,
-    })).shadowRoot!;
-    expect(root.querySelector("input.weight")).toBeNull();
-    expect(save(root)).toBeUndefined();
-    expect(restart(root)).toBeTruthy();
-  });
-
-  it("hides the restart on its own", async () => {
-    const { hass, model } = build("target");
-    const root = (await render("wg-actions", {
-      hass,
-      model,
-      showRestart: false,
-    })).shadowRoot!;
-    expect(restart(root)).toBeUndefined();
-    expect(save(root)).toBeTruthy();
-  });
-
-  it("renders nothing at all with both off", async () => {
-    // There is no outer switch any more: the two toggles are the whole story,
-    // and both off has to mean no action row rather than an empty one.
-    const { hass, model } = build("target");
-    const el = await render("wg-actions", {
-      hass,
-      model,
-      showRecord: false,
-      showRestart: false,
-    });
+    const el = await render("wg-actions", { hass, model, showRecord: false });
     expect(el.shadowRoot!.querySelector(".actions")).toBeNull();
   });
 
@@ -421,17 +382,6 @@ describe("the two actions", () => {
     expect(light.querySelector("input.day")!.classList.contains("dark")).toBe(false);
   });
 
-  it("translates the restart hint", async () => {
-    // The hint used to be hardcoded English while the translation for it sat
-    // unused in both locale files.
-    const { hass, model } = build("target");
-    const german = { ...hass, locale: { language: "de" } } as typeof hass;
-    const root = (await render("wg-actions", {
-      hass: german,
-      model: { ...model, startTodayArmed: true },
-    })).shadowRoot!;
-    expect(root.querySelector(".hint")!.textContent).toContain("Startgewicht");
-  });
 });
 
 describe("typing a weight with a comma", () => {

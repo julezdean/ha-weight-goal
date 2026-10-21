@@ -16,7 +16,6 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.weight_goal.const import (
     CONF_END_DATE,
     CONF_RATE_PER_WEEK,
-    CONF_START_DATE,
     CONF_START_WEIGHT,
     CONF_TARGET_WEIGHT,
     CONF_TOLERANCE,
@@ -295,32 +294,6 @@ async def test_direction_attribute(
         hass.states.get("sensor.julien_status").attributes["direction"]
         == DIRECTION_LOSE
     )
-
-
-async def test_start_today_leaves_the_end_date_alone(
-    hass: HomeAssistant, frozen: FrozenDateTimeFactory, mock_entry: MockConfigEntry
-) -> None:
-    """Pressing the button moves only the start weight and the start date."""
-    assert await hass.config_entries.async_setup(mock_entry.entry_id)
-    await hass.async_block_till_done()
-    await record(hass, mock_entry, 78.3)
-
-    frozen.move_to(datetime(2026, 3, 15, 9, 0, tzinfo=dt_util.UTC))
-    # Two steps: the first press only stages the change.
-    for entity_id in (
-        "button.julien_start_today",
-        "button.julien_confirm_start_today",
-    ):
-        await hass.services.async_call(
-            "button", "press", {"entity_id": entity_id}, blocking=True
-        )
-    await hass.async_block_till_done()
-
-    assert goal_data(mock_entry)[CONF_START_DATE] == "2026-03-15"
-    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 78.3
-    assert goal_data(mock_entry)[CONF_END_DATE] == "2026-05-09"
-    # The rate follows from the shortened remaining range.
-    assert goal_data(mock_entry)[CONF_RATE_PER_WEEK] == pytest.approx(-0.4125, abs=0.0001)
 
 
 async def test_implausible_and_jumping_values_are_rejected(

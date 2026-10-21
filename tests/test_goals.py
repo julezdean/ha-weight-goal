@@ -10,6 +10,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -31,6 +32,7 @@ from custom_components.weight_goal.const import (
     EVENT_GOAL_ENDED,
     MODE_RATE,
     MODE_TARGET,
+    SERVICE_CREATE_GOAL,
     SERVICE_GET_MEASUREMENTS,
     STATUS_AHEAD,
     STATUS_ENDED,
@@ -527,3 +529,125 @@ async def test_get_measurements_returns_the_goals(
             "result": None,
         }
     ]
+
+
+# ---------------------------------------------------------------------------
+# Creating a goal from an action
+# ---------------------------------------------------------------------------
+
+
+async def test_create_goal_fills_in_today_and_the_latest_weight(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """What the dialog suggests is what the action defaults to."""
+    await _setup(hass, mock_entry)
+    await mock_entry.runtime_data.async_record_weight(78.4)
+    await hass.async_block_till_done()
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CREATE_GOAL,
+        {**ANCHOR, CONF_NAME: "Summer", CONF_TARGET_WEIGHT: 75.0, CONF_END_DATE: "2026-06-30"},
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+
+    summer = _goal_id(mock_entry, "Summer")
+    assert response == {"goals": {mock_entry.entry_id: summer}}
+    data = goal_data(mock_entry, summer)
+    assert data[CONF_START_DATE] == "2026-03-01"
+    assert data[CONF_START_WEIGHT] == 78.4
+    assert data[CONF_GOAL_MODE] == MODE_TARGET
+    assert data[CONF_RATE_PER_WEEK] == pytest.approx(-3.4 / (122 / 7), abs=0.0001)
+    assert mock_entry.options[CONF_ACTIVE_GOAL] == summer
+    # The goal it replaced keeps its plan.
+    assert goal_data(mock_entry)[CONF_START_WEIGHT] == 80.0
+
+
+async def test_create_goal_in_rate_mode_without_activating(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    await _setup(hass, mock_entry)
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CREATE_GOAL,
+        {
+            **ANCHOR,
+            CONF_NAME: "Steady",
+            CONF_GOAL_MODE: MODE_RATE,
+            CONF_START_WEIGHT: 80.0,
+            CONF_RATE_PER_WEEK: -0.5,
+            # A target is ignored when the rate is the input.
+            CONF_TARGET_WEIGHT: 60.0,
+            CONF_START_DATE: "2026-03-01",
+            CONF_END_DATE: "2026-05-09",
+            CONF_ACTIVATE: False,
+        },
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    data = goal_data(mock_entry, _goal_id(mock_entry, "Steady"))
+    assert data[CONF_TARGET_WEIGHT] == pytest.approx(75.0)
+    assert mock_entry.options[CONF_ACTIVE_GOAL] == GOAL_ID
+
+
+@pytest.mark.parametrize(
+    ("data", "message"),
+    [
+        ({CONF_NAME: "spring", CONF_TARGET_WEIGHT: 75.0}, "name_taken"),
+        ({CONF_NAME: "none", CONF_TARGET_WEIGHT: 75.0}, "reserved_name"),
+        ({CONF_NAME: "Later"}, "missing_goal_value"),
+        (
+            {CONF_NAME: "Later", CONF_TARGET_WEIGHT: 75.0, CONF_START_DATE: "2026-07-01"},
+            "invalid_dates",
+        ),
+    ],
+)
+async def test_create_goal_refuses_what_the_dialog_refuses(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry, data: dict, message: str
+) -> None:
+    await _setup(hass, mock_entry)
+    with pytest.raises(ServiceValidationError) as raised:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CREATE_GOAL,
+            {**ANCHOR, CONF_START_WEIGHT: 80.0, CONF_END_DATE: "2026-06-30", **data},
+            blocking=True,
+        )
+    assert raised.value.translation_key == message
+    assert len(mock_entry.subentries) == 1
+
+
+async def test_create_goal_needs_a_start_weight_before_the_first_reading(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    await _setup(hass, mock_entry)
+    with pytest.raises(ServiceValidationError) as raised:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CREATE_GOAL,
+            {**ANCHOR, CONF_NAME: "Summer", CONF_TARGET_WEIGHT: 75.0, CONF_END_DATE: "2026-06-30"},
+            blocking=True,
+        )
+    assert raised.value.translation_key == "no_start_weight"
+
+
+async def test_the_retired_start_today_buttons_are_removed(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry, entity_registry
+) -> None:
+    """Left behind by 0.11.0-beta.1, they would show as no longer provided."""
+    for key in ("start_today", "confirm_start_today"):
+        entity_registry.async_get_or_create(
+            "button",
+            DOMAIN,
+            f"{mock_entry.entry_id}_{key}",
+            config_entry=mock_entry,
+            suggested_object_id=f"julien_{key}",
+        )
+    await _setup(hass, mock_entry)
+
+    assert entity_registry.async_get("button.julien_start_today") is None
+    assert entity_registry.async_get("button.julien_confirm_start_today") is None
+    assert entity_registry.async_get("button.julien_record_weight") is not None

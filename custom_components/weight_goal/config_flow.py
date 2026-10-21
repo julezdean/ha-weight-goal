@@ -32,7 +32,6 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
-    ACTIVE_GOAL_NONE,
     CONF_ACTIVATE,
     CONF_ALLOW_MANUAL,
     CONF_END_DATE,
@@ -69,7 +68,7 @@ from .const import (
     RATE_LIMIT_PER_WEEK,
     SUBENTRY_GOAL,
 )
-from .helpers import goal_weeks, normalise_goal, parse_date
+from .helpers import goal_name_error, goal_weeks, normalise_goal, parse_date
 
 SCRIPT_OPTIONS = (
     CONF_SCRIPT_MEASUREMENT,
@@ -325,19 +324,15 @@ class GoalSubentryFlow(ConfigSubentryFlow):
 
     def _name_error(self, name: str) -> str | None:
         """Names pick the goal in the active goal select, so they must differ."""
-        if not name:
-            return "invalid_name"
-        if name.casefold() == ACTIVE_GOAL_NONE:
-            return "reserved_name"
-        own = (
-            self._reconfigure_subentry_id
-            if self.source == "reconfigure"
-            else None
+        own = self._reconfigure_subentry_id if self.source == "reconfigure" else None
+        return goal_name_error(
+            name,
+            (
+                goal.title
+                for goal_id, goal in self._get_entry().subentries.items()
+                if goal_id != own
+            ),
         )
-        for goal_id, goal in self._get_entry().subentries.items():
-            if goal_id != own and goal.title.casefold() == name.casefold():
-                return "name_taken"
-        return None
 
     async def async_step_values(
         self, user_input: dict[str, Any] | None = None

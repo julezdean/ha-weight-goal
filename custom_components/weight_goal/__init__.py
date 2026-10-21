@@ -8,7 +8,7 @@ from types import MappingProxyType
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -43,6 +43,11 @@ PLATFORMS: list[Platform] = [
 ]
 
 type WeightGoalConfigEntry = ConfigEntry[WeightGoalManager]
+
+#: Buttons of 0.11.0-beta.1 and earlier that moved the start of the goal to
+#: today. They rewrote the plan of the days before, which is what the goal list
+#: exists to prevent; a new goal is added instead.
+_REMOVED_BUTTONS = ("start_today", "confirm_start_today")
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -91,6 +96,7 @@ def _period_title(goal: dict) -> str:
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeightGoalConfigEntry) -> bool:
     """Set up a goal from a config entry."""
+    _remove_retired_entities(hass, entry)
     manager = WeightGoalManager(hass, entry)
     await manager.async_setup()
     entry.runtime_data = manager
@@ -98,6 +104,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: WeightGoalConfigEntry) -
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
+
+
+def _remove_retired_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop entities this version no longer provides.
+
+    Left in the registry they would linger as "no longer provided" on the
+    device page, with nothing to say what replaced them.
+    """
+    registry = er.async_get(hass)
+    for key in _REMOVED_BUTTONS:
+        entity_id = registry.async_get_entity_id(
+            Platform.BUTTON, DOMAIN, f"{entry.entry_id}_{key}"
+        )
+        if entity_id is not None:
+            registry.async_remove(entity_id)
 
 
 async def _async_options_updated(

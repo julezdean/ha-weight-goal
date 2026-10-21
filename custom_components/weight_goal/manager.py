@@ -15,6 +15,7 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, tzinfo
+from types import MappingProxyType
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -35,7 +36,6 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ARM_TIMEOUT_SECONDS,
     CATCHUP_GRACE_HOURS,
     CONF_ACTIVATE,
     CONF_ACTIVE_GOAL,
@@ -78,6 +78,7 @@ from .const import (
     MANUAL_BACKDATE_TIME,
     MAX_MEASUREMENTS,
     MAX_PROJECTION_DAYS,
+    MODE_RATE,
     PROJECTION_WINDOW_DAYS,
     RETENTION_DAYS,
     SOURCE_IMPORT,
@@ -100,6 +101,7 @@ from .helpers import (
     direction_sign,
     goal_weeks,
     linear_rate,
+    goal_name_error,
     next_local_midnight,
     normalise_goal,
     parse_date,
@@ -257,7 +259,6 @@ class WeightGoalManager:
         self._listeners: list[CALLBACK_TYPE] = []
         self._unsubscribers: list[CALLBACK_TYPE] = []
         self._timers: dict[str, CALLBACK_TYPE] = {}
-        self._start_today_armed_until: datetime | None = None
         self._ceiling_logged = False
 
     # ------------------------------------------------------------------
@@ -1074,66 +1075,63 @@ class WeightGoalManager:
                 del remembered[goal_id]
         return changed
 
-    @property
-    def start_today_armed(self) -> bool:
-        """Whether a pending start today is still confirmable."""
-        if self._start_today_armed_until is None:
-            return False
-        return dt_util.utcnow() < self._start_today_armed_until
+    async def async_create_goal(
+        self, name: str, goal: dict[str, Any], *, activate: bool
+    ) -> str:
+        """Add a goal the way the Add goal dialog does, and return its id.
 
-    @property
-    def start_today_preview(self) -> dict[str, Any]:
-        """What confirming would change, so the user can check before pressing."""
-        return {
-            "new_start_weight": self.current_weight,
-            "new_start_date": dt_util.now(self.zone).date().isoformat(),
-            "current_start_weight": self.start_weight,
-            "current_start_date": None
-            if self.start_date is None
-            else self.start_date.isoformat(),
-        }
-
-    async def async_arm_start_today(self) -> None:
-        """Stage a start today; it expires on its own if left alone.
-
-        Moving the start of a goal overwrites the start weight, the start date
-        and with them the derived rate. That is too much to happen on a single
-        stray tap on a dashboard.
+        What the dialog suggests is filled in here as well: today as the
+        start, the latest weight as the start weight. Of target weight and
+        rate only the one the goal mode names is taken; the other is derived.
         """
-        self._start_today_armed_until = dt_util.utcnow() + timedelta(
-            seconds=ARM_TIMEOUT_SECONDS
-        )
-        self._cancel("start_today_arm")
-        self._timers["start_today_arm"] = async_track_point_in_time(
-            self.hass, self._handle_arm_expired, self._start_today_armed_until
-        )
-        self._notify()
-
-    async def _handle_arm_expired(self, _now: datetime) -> None:
-        self._start_today_armed_until = None
-        self._notify()
-
-    async def async_confirm_start_today(self) -> bool:
-        """Apply a staged start today. Returns ``False`` when nothing is staged."""
-        if not self.start_today_armed:
-            return False
-        self._start_today_armed_until = None
-        self._cancel("start_today_arm")
-        await self.async_start_today()
-        self._notify()
-        return True
-
-    async def async_start_today(self) -> None:
-        """Use the latest measurement and today as the start of the goal.
-
-        Only the start weight and the start date change; the end date stays put.
-        """
-        changes: dict[str, Any] = {
-            CONF_START_DATE: dt_util.now(self.zone).date().isoformat()
+        name = name.strip()
+        if error := goal_name_error(name, (other.title for other in self.goals)):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key=error
+            )
+        data = {
+            key: value.isoformat() if isinstance(value, date) else value
+            for key, value in goal.items()
+            if value is not None
         }
-        if self.current_weight is not None:
-            changes[CONF_START_WEIGHT] = self.current_weight
-        await self.async_set_goal(**changes)
+        mode = data.setdefault(CONF_GOAL_MODE, DEFAULT_GOAL_MODE)
+        data.setdefault(CONF_START_DATE, dt_util.now(self.zone).date().isoformat())
+        if CONF_START_WEIGHT not in data:
+            if self.current_weight is None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="no_start_weight"
+                )
+            data[CONF_START_WEIGHT] = self.current_weight
+
+        given, derived = (
+            (CONF_RATE_PER_WEEK, CONF_TARGET_WEIGHT)
+            if mode == MODE_RATE
+            else (CONF_TARGET_WEIGHT, CONF_RATE_PER_WEEK)
+        )
+        if given not in data:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="missing_goal_value",
+                translation_placeholders={"field": given},
+            )
+        data.pop(derived, None)
+        if goal_weeks(
+            parse_date(data.get(CONF_START_DATE)), parse_date(data.get(CONF_END_DATE))
+        ) is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="invalid_dates"
+            )
+
+        subentry = ConfigSubentry(
+            data=MappingProxyType(normalise_goal(data)),
+            subentry_type=SUBENTRY_GOAL,
+            title=name,
+            unique_id=None,
+        )
+        self.hass.config_entries.async_add_subentry(self.entry, subentry)
+        if activate:
+            await self.async_set_active_goal(subentry.subentry_id)
+        return subentry.subentry_id
 
     # ------------------------------------------------------------------
     # Set up and tear down
@@ -1237,8 +1235,6 @@ class WeightGoalManager:
         """Apply an options or goal change without reloading the entry."""
         if self._tidy_goals():
             return
-        # A staged start today previews values that may just have changed.
-        self._start_today_armed_until = None
         self._subscribe_source()
         self._schedule_all()
         await self.async_refresh()
