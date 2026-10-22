@@ -5,6 +5,7 @@ import { CARD_TYPE } from "../const";
 import { DEFAULT_BADGES } from "../lib/badges";
 import { localize, translator } from "../localize";
 import {
+  actionsSchema,
   anchorSchema,
   badgeSchema,
   chartSchema,
@@ -78,6 +79,12 @@ export class WeightGoalCardEditor extends LitElement {
         type: "expandable",
         title: t("editor.chart"),
         schema: chartSchema(t),
+      },
+      {
+        name: "",
+        type: "expandable",
+        title: t("editor.interactions"),
+        schema: actionsSchema(),
       },
     ];
   }

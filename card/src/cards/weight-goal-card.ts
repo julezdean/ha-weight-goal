@@ -4,6 +4,13 @@ import { customElement } from "lit/decorators.js";
 import { CARD_TYPE } from "../const";
 import { sharedStyles } from "../shared-styles";
 import { WeightGoalBaseCard } from "./base";
+import {
+  GestureHandler,
+  hasAction,
+  hasCardActions,
+  isActionable,
+  type ActionKind,
+} from "../lib/actions";
 import type { ChartOptions, WeightGoalCardConfig } from "../types";
 
 import "../components/wg-actions";
@@ -17,6 +24,13 @@ import "../components/wg-progress";
 
 @customElement(CARD_TYPE)
 export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
+  private _gestures = new GestureHandler({
+    enabled: () => hasCardActions(this._config),
+    hold: () => hasAction(this._config?.hold_action),
+    doubleTap: () => hasAction(this._config?.double_tap_action),
+    fire: (action) => this._fireAction(action),
+  });
+
   public static getStubConfig(
     _hass: unknown,
     entities: string[],
@@ -58,6 +72,30 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
     return this._config?.show_chart !== false;
   }
 
+  public override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._gestures.reset();
+  }
+
+  /**
+   * Home Assistant carries the action out, from the card's own config: it
+   * picks the `<action>_action` that belongs to the gesture, asks for
+   * `confirmation`, and falls back to more-info of `entity` for a tap that has
+   * none.
+   */
+  private _fireAction(action: ActionKind): void {
+    if (!this._config) {
+      return;
+    }
+    this.dispatchEvent(
+      new CustomEvent("hass-action", {
+        detail: { config: this._config, action },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   public getCardSize(): number {
     let size = 2;
     if (this._config?.show_chart !== false) size += 3;
@@ -83,9 +121,25 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
     // returns nothing is still a flex item, and the column gap around it
     // would leave a hole where the actions are not.
     const showActions = config.show_record !== false;
+    // Once the card has actions of its own they cover all of it, so the
+    // sections stop opening more-info on their own: one tap, one dialog.
+    const passive = hasCardActions(config);
+    const actionable = isActionable(config);
+    const g = this._gestures;
 
     return html`
-      <ha-card>
+      <ha-card
+        class=${actionable ? "actionable" : ""}
+        role=${actionable ? "button" : nothing}
+        tabindex=${actionable ? "0" : nothing}
+        aria-label=${actionable ? (config.name ?? model.context.name) : nothing}
+        @pointerdown=${g.down}
+        @pointermove=${g.move}
+        @pointerup=${g.up}
+        @pointercancel=${g.cancel}
+        @contextmenu=${g.contextMenu}
+        @keydown=${g.key}
+      >
         <div class="content">
           ${config.show_header === false
             ? nothing
@@ -95,11 +149,16 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
                 .name=${config.name ?? model.context.name}
                 .icon=${config.icon}
                 ?compact=${config.header === "compact"}
+                ?passive=${passive}
               ></wg-header>`}
 
           ${config.show_hero === false
             ? nothing
-            : html`<wg-hero .hass=${this.hass} .model=${model}></wg-hero>`}
+            : html`<wg-hero
+                .hass=${this.hass}
+                .model=${model}
+                ?passive=${passive}
+              ></wg-hero>`}
 
           ${config.show_badges === false
             ? nothing
@@ -107,6 +166,7 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
                 .hass=${this.hass}
                 .model=${model}
                 .badges=${config.badges}
+                ?passive=${passive}
               ></wg-badges>`}
 
           ${showChart
@@ -159,6 +219,13 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
       ha-card {
         container-type: inline-size;
         overflow: hidden;
+      }
+      ha-card.actionable {
+        cursor: pointer;
+      }
+      ha-card.actionable:focus-visible {
+        outline: 2px solid var(--primary-color, #03a9f4);
+        outline-offset: 2px;
       }
       .content {
         display: flex;

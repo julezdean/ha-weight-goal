@@ -154,4 +154,10 @@ export const de: Record<TranslationKey, string> = {
   "editor.show_record_date": "Tag der Messung",
   "editor.show_goal_editor": "Zieleinstellungen",
   "editor.show_goals": "Zielliste",
+  "editor.interactions": "Interaktionen",
+  "editor.tap_action": "Aktion beim Tippen",
+  "editor.tap_action_help":
+    "Sobald eine Aktion gesetzt ist, gilt sie für die ganze Karte, und Gewicht, Status und Badges öffnen keine eigenen Dialoge mehr.",
+  "editor.hold_action": "Aktion beim Halten",
+  "editor.double_tap_action": "Aktion beim Doppeltippen",
 };

@@ -150,6 +150,12 @@ export const en = {
   "editor.show_record_date": "Day of the reading",
   "editor.show_goal_editor": "Goal settings",
   "editor.show_goals": "Goal list",
+  "editor.interactions": "Interactions",
+  "editor.tap_action": "Tap action",
+  "editor.tap_action_help":
+    "Once any action is set it covers the whole card, and the weight, the status and the badges no longer open their own dialogs.",
+  "editor.hold_action": "Hold action",
+  "editor.double_tap_action": "Double tap action",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -462,6 +462,32 @@ Only for the card:
 | `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
+| `tap_action`, `hold_action`, `double_tap_action` | – | Home Assistant's [card actions](https://www.home-assistant.io/dashboards/actions/), `confirmation` included. See [Card actions](#card-actions). |
+
+### Card actions
+
+Without any of the three, the card behaves as it always has: the weight opens
+the more-info dialog of the weight sensor, the status that of the status
+sensor, and each badge that of its entity.
+
+Set any one of them and it covers the whole card instead. The weight, the
+status and the badges stop opening their own dialogs, so one tap is one action.
+The card shows a pointer, can be reached with Tab and tapped with Enter or
+Space. What stays interactive in its own right keeps its clicks and never
+triggers the card: the weight field and its save button, the goal settings,
+the goal list with **New goal**, and the chart, which answers a touch with its
+tooltip.
+
+The card hands the action to Home Assistant rather than carrying it out
+itself, the same way the built-in cards do, so every action type works:
+`more-info`, `navigate`, `url`, `perform-action`, `assist`, `none`, and
+`fire-dom-event` for browser_mod. A tap with no `tap_action` next to a set
+`hold_action` opens more-info of `entity`. A press of half a second is a hold
+only when `hold_action` is set, and a tap waits a quarter second for a second
+one only when `double_tap_action` is set; otherwise both are plain taps. A
+swipe that starts on the card still scrolls the page.
+
+The visual editor has the three under **Interactions**.
 
 ### Badges
 
@@ -581,6 +607,33 @@ badges:
   - source
   - entity: sensor.alex_muscle_mass
     icon: mdi:arm-flex
+```
+
+Compact on the dashboard, the whole card in a [browser_mod](https://github.com/thomasloven/hass-browser_mod)
+popup on tap. No button-card around it, so the popup's card is a plain copy
+with the chart switched back on:
+
+```yaml
+type: custom:weight-goal-card
+entity: sensor.alex_status
+header: compact
+show_chart: false
+show_record: false
+show_goal_editor: false
+show_goals: false
+tap_action:
+  action: fire-dom-event
+  browser_mod:
+    service: browser_mod.popup
+    data:
+      title: Weight
+      size: wide
+      content:
+        type: custom:weight-goal-card
+        entity: sensor.alex_status
+        show_chart: true
+hold_action:
+  action: more-info
 ```
 
 Two people side by side:

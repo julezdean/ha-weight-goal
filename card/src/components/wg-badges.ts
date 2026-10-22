@@ -23,6 +23,10 @@ export class WgBadges extends LitElement {
 
   @property({ attribute: false }) public badges?: BadgeConfig[];
 
+  /** The card has actions of its own and takes the clicks; this section
+   * only shows. */
+  @property({ type: Boolean }) public passive = false;
+
   protected override render(): TemplateResult | typeof nothing {
     const model = this.model;
     if (!model || !this.hass) {
@@ -55,6 +59,12 @@ export class WgBadges extends LitElement {
     // measurement" in front of "6 hours ago" costs a line on a phone. The name
     // is still there for a screen reader and on hover.
     const aria = badge.label ? `${badge.label}: ${badge.text}` : badge.text;
+    if (this.passive) {
+      return html`<span class="chip" title=${badge.label} aria-label=${aria}>
+        <ha-icon icon=${badge.icon}></ha-icon>
+        <span>${badge.text}</span>
+      </span>`;
+    }
     return html`<button
       class="chip"
       title=${badge.label}

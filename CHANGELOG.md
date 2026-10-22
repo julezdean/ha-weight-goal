@@ -29,6 +29,12 @@ All notable changes to this project are documented here. The format follows
 - Status `upcoming` for an active goal that begins on a later day.
 - Every event carries `goal`, the name of the active goal.
 - `get_measurements` returns the goal list next to the readings.
+- The card takes `tap_action`, `hold_action` and `double_tap_action`, with
+  every action type Home Assistant knows, `confirmation` and browser_mod's
+  `fire-dom-event` included. Set, they cover the whole card and the weight,
+  status and badges stop opening more-info on their own; the record field,
+  goal settings, goal list and chart keep their clicks. Without them nothing
+  changes. The visual editor has them under **Interactions**.
 
 ### Changed
 

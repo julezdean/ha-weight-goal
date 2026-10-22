@@ -14,6 +14,10 @@ export class WgHero extends LitElement {
 
   @property({ attribute: false }) public model?: GoalModel;
 
+  /** The card has actions of its own and takes the clicks; this section
+   * only shows. */
+  @property({ type: Boolean }) public passive = false;
+
   protected override render(): TemplateResult | typeof nothing {
     const model = this.model;
     if (!model || !this.hass) {
@@ -21,18 +25,23 @@ export class WgHero extends LitElement {
     }
     const t = translator(this.hass);
     const colour = STATUS_COLOR[model.status] ?? STATUS_COLOR.no_goal;
+    const value = html`
+      <span class="number"
+        >${formatNumber(this.hass, model.currentWeight, 1)}</span
+      >
+      <span class="unit muted">${model.unit}</span>
+    `;
 
     return html`
       <div class="hero">
-        <button
-          class="value"
-          @click=${() => this._more(model.context.entities.weight)}
-        >
-          <span class="number"
-            >${formatNumber(this.hass, model.currentWeight, 1)}</span
-          >
-          <span class="unit muted">${model.unit}</span>
-        </button>
+        ${this.passive
+          ? html`<span class="value">${value}</span>`
+          : html`<button
+              class="value"
+              @click=${() => this._more(model.context.entities.weight)}
+            >
+              ${value}
+            </button>`}
         ${model.deviation === null
           ? nothing
           : html`<div class="deviation" style=${`color:${colour}`}>

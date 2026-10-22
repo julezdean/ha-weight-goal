@@ -112,6 +112,27 @@ function badgeLabel(hass: HomeAssistant | undefined, badge: string): string {
   return badge;
 }
 
+/**
+ * Home Assistant's own action picker. The tap default is what the card does
+ * without one — more-info of `entity` — so the picker says what will happen.
+ */
+export function actionsSchema(): FormSchema[] {
+  return [
+    {
+      name: "tap_action",
+      selector: { ui_action: { default_action: "more-info" } },
+    },
+    {
+      name: "hold_action",
+      selector: { ui_action: { default_action: "none" } },
+    },
+    {
+      name: "double_tap_action",
+      selector: { ui_action: { default_action: "none" } },
+    },
+  ];
+}
+
 export function chartSchema(t: T): FormSchema[] {
   return [
     {
@@ -282,6 +303,9 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
   show_record_date: "editor.show_record_date",
   show_goal_editor: "editor.show_goal_editor",
   show_goals: "editor.show_goals",
+  tap_action: "editor.tap_action",
+  hold_action: "editor.hold_action",
+  double_tap_action: "editor.double_tap_action",
 };
 
 const HELPER_KEYS: Record<string, TranslationKey> = {
@@ -294,6 +318,7 @@ const HELPER_KEYS: Record<string, TranslationKey> = {
   include_goal: "editor.include_goal_help",
   min: "editor.axis_bound_help",
   max: "editor.axis_bound_help",
+  tap_action: "editor.tap_action_help",
 };
 
 export function computeLabel(

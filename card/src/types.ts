@@ -207,6 +207,36 @@ export interface ChartOptions {
   };
 }
 
+// --- Actions -------------------------------------------------------------
+
+/**
+ * Home Assistant's action config, loosely. The card hands it back to Home
+ * Assistant unread, so only `action` and `confirmation` are spelled out; the
+ * rest — `navigation_path`, `perform_action`, browser_mod's `browser_mod` and
+ * whatever comes next — passes through.
+ */
+export interface ActionConfig {
+  action:
+    | "more-info"
+    | "toggle"
+    | "navigate"
+    | "url"
+    | "perform-action"
+    | "call-service"
+    | "assist"
+    | "fire-dom-event"
+    | "none"
+    | (string & {});
+  confirmation?: boolean | { text?: string; exemptions?: Array<{ user: string }> };
+  [key: string]: unknown;
+}
+
+export interface ActionsConfig {
+  tap_action?: ActionConfig;
+  hold_action?: ActionConfig;
+  double_tap_action?: ActionConfig;
+}
+
 export interface BaseCardConfig {
   type: string;
   entity?: string;
@@ -240,7 +270,10 @@ export interface CustomBadge {
 
 export type BadgeConfig = BuiltinBadge | CustomBadge;
 
-export interface WeightGoalCardConfig extends BaseCardConfig, ChartOptions {
+export interface WeightGoalCardConfig
+  extends BaseCardConfig,
+    ChartOptions,
+    ActionsConfig {
   show_header?: boolean;
   /** `compact` is the one line name and weight; `full` the icon, dates and
    * status. */

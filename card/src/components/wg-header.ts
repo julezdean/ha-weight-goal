@@ -22,6 +22,10 @@ export class WgHeader extends LitElement {
    * card that is mostly chart, where the full header outweighs what it heads. */
   @property({ type: Boolean }) public compact = false;
 
+  /** The card has actions of its own and takes the clicks; this section
+   * only shows. */
+  @property({ type: Boolean }) public passive = false;
+
   protected override render(): TemplateResult | typeof nothing {
     const model = this.model;
     if (!model) {
@@ -49,6 +53,10 @@ export class WgHeader extends LitElement {
     const label =
       formatState(this.hass, stateOf(this.hass, model.context.entities.status)) ||
       status;
+    const statusContent = html`
+      <ha-icon icon=${STATUS_ICON[status] ?? "mdi:information-outline"}></ha-icon>
+      <span>${label}</span>
+    `;
 
     return html`
       <div class="header">
@@ -68,15 +76,16 @@ export class WgHeader extends LitElement {
               >`
             : nothing}
         </div>
-        <button
-          class="status"
-          style=${`color:${colour}`}
-          @click=${this._openStatus}
-          aria-label=${localize(this.hass, "header.status", { status: label })}
-        >
-          <ha-icon icon=${STATUS_ICON[status] ?? "mdi:information-outline"}></ha-icon>
-          <span>${label}</span>
-        </button>
+        ${this.passive
+          ? html`<span class="status" style=${`color:${colour}`}>${statusContent}</span>`
+          : html`<button
+              class="status"
+              style=${`color:${colour}`}
+              @click=${this._openStatus}
+              aria-label=${localize(this.hass, "header.status", { status: label })}
+            >
+              ${statusContent}
+            </button>`}
       </div>
     `;
   }
