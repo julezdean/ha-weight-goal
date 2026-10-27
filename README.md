@@ -458,8 +458,8 @@ Only for the card:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `show_header`, `show_hero`, `show_badges`, `show_chart`, `show_progress`, `show_goal_editor`, `show_goals` | `true` | Individual sections. `show_goals` is the goal list, with the outcome of each finished goal, a button to activate it and **New goal**; changing and deleting goals stays on the integration page, which the list links to. |
-| `show_record` | `true` | The weight field and its save button. Off is no action row at all. |
-| `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off. |
+| `show_record` | `true` | The weight field and its save button. Off is no action row at all. Without manual entry there is no row to switch, and the visual editor leaves the option out. |
+| `show_record_date` | `true` | The day field next to the weight. With `false` every reading the card saves is today's, whatever `date.<name>_manual_date` holds — a day nobody can see would move readings without saying so. Moot when `show_record` is off, and the visual editor then leaves it out. |
 | `header` | `full` | `full` is the icon, the end date and the status. `compact` is one line of name and current weight. |
 | `badges` | `[last_measurement, trend, remaining, projected_date]` | The chips below the weight, in the order given. `[]` hides them all, as does `show_badges: false`. |
 | `tap_action`, `hold_action`, `double_tap_action` | – | Home Assistant's [card actions](https://www.home-assistant.io/dashboards/actions/), `confirmation` included. See [Card actions](#card-actions). |
