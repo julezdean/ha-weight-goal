@@ -112,6 +112,51 @@ function badgeLabel(hass: HomeAssistant | undefined, badge: string): string {
   return badge;
 }
 
+export interface SectionOptions {
+  /** The goal takes manual readings: its manual weight is not `unavailable`. */
+  manual: boolean;
+  /** `show_record` is on. */
+  record: boolean;
+}
+
+/**
+ * Section switches. The two record switches follow what the card can show:
+ * without manual entry the card has no record row, whatever `show_record`
+ * says, and the day field only exists inside that row.
+ */
+export function sectionsSchema(t: T, options: SectionOptions): FormSchema[] {
+  const toggles = [
+    "show_header",
+    "show_hero",
+    "show_badges",
+    "show_chart",
+    "show_progress",
+    ...(options.manual ? ["show_record"] : []),
+    ...(options.manual && options.record ? ["show_record_date"] : []),
+    "show_goal_editor",
+    "show_goals",
+  ];
+  return [
+    {
+      name: "",
+      type: "grid",
+      schema: toggles.map((name) => ({ name, selector: { boolean: {} } })),
+    },
+    {
+      name: "header",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "full", label: t("editor.header_full") },
+            { value: "compact", label: t("editor.header_compact") },
+          ],
+        },
+      },
+    },
+  ];
+}
+
 /**
  * Home Assistant's own action picker. The tap default is what the card does
  * without one — more-info of `entity` — so the picker says what will happen.

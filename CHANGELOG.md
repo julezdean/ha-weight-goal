@@ -55,6 +55,10 @@ All notable changes to this project are documented here. The format follows
   `weight_progress` are unknown.
 - A card that shows only chosen sections now also needs `show_goals: false`,
   or the goal list appears below it after the update.
+- The visual editor offers **Save reading** only for a goal that takes manual
+  readings, and **Day of the reading** only while **Save reading** is on. Both
+  used to be there for a card that cannot show them. Values already in the
+  config are kept.
 
 ### Removed
 

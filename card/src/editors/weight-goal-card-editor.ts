@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import { CARD_TYPE } from "../const";
 import { DEFAULT_BADGES } from "../lib/badges";
+import { discover } from "../lib/discovery";
 import { localize, translator } from "../localize";
 import {
   actionsSchema,
@@ -12,6 +13,7 @@ import {
   computeHelper,
   computeLabel,
   ensureFormLoaded,
+  sectionsSchema,
   type FormSchema,
 } from "./schema";
 import type { HomeAssistant, WeightGoalCardConfig } from "../types";
@@ -44,35 +46,10 @@ export class WeightGoalCardEditor extends LitElement {
         name: "",
         type: "expandable",
         title: t("editor.sections"),
-        schema: [
-          {
-            name: "",
-            type: "grid",
-            schema: [
-              { name: "show_header", selector: { boolean: {} } },
-              { name: "show_hero", selector: { boolean: {} } },
-              { name: "show_badges", selector: { boolean: {} } },
-              { name: "show_chart", selector: { boolean: {} } },
-              { name: "show_progress", selector: { boolean: {} } },
-              { name: "show_record", selector: { boolean: {} } },
-              { name: "show_record_date", selector: { boolean: {} } },
-              { name: "show_goal_editor", selector: { boolean: {} } },
-              { name: "show_goals", selector: { boolean: {} } },
-            ],
-          },
-          {
-            name: "header",
-            selector: {
-              select: {
-                mode: "dropdown",
-                options: [
-                  { value: "full", label: t("editor.header_full") },
-                  { value: "compact", label: t("editor.header_compact") },
-                ],
-              },
-            },
-          },
-        ],
+        schema: sectionsSchema(t, {
+          manual: this._manualOffered(),
+          record: this._config?.show_record !== false,
+        }),
       },
       {
         name: "",
@@ -89,7 +66,17 @@ export class WeightGoalCardEditor extends LitElement {
     ];
   }
 
-  protected override render(): TemplateResult | typeof nothing {
+  /** Same test as the card's record row, so the editor offers what it shows. */
+  private _manualOffered(): boolean {
+    if (!this.hass || !this._config) {
+      return false;
+    }
+    const entityId = discover(this.hass, this._config).entities.manual_weight;
+    const state = entityId ? this.hass.states[entityId] : undefined;
+    return !!state && state.state !== "unavailable";
+  }
+
+  protected override render():TemplateResult | typeof nothing {
     if (!this.hass || !this._config) {
       return nothing;
     }
