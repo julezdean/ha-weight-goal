@@ -16,12 +16,10 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
-from homeassistant.helpers.target import async_extract_referenced_entity_ids
-
-try:  # 2026.1 renamed the class, and the old name goes away in 2026.12.
-    from homeassistant.helpers.target import TargetSelection
-except ImportError:  # Home Assistant < 2026.1
-    from homeassistant.helpers.target import TargetSelectorData as TargetSelection
+from homeassistant.helpers.target import (
+    TargetSelection,
+    async_extract_referenced_entity_ids,
+)
 
 from .const import (
     ATTR_DAYS,
