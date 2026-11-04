@@ -88,8 +88,8 @@ export const en = {
   "progress.aria": "{label} progress",
 
   "editor.loading": "Loading the editor… if this stays here, edit the card in YAML.",
-  "editor.entity": "Goal entity",
-  "editor.entity_help": "Any entity of the goal. The card finds the rest itself.",
+  "editor.device": "Person",
+  "editor.device_help": "The Road to Weight Goal device. The card finds its entities itself.",
   "editor.name": "Name",
   "editor.icon": "Icon",
   "editor.badges": "Badges",

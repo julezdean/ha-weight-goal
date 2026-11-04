@@ -71,9 +71,7 @@ Goals are added afterwards, see [Goals](#goals). Everything else lives under **C
 | Option | Default | Meaning |
 | --- | --- | --- |
 | Lowest / highest plausible weight | 20 / 300 kg | Values outside this range are ignored and logged. |
-| On track tolerance | 0.5 kg | How far you may deviate from the plan before the status changes. |
 | Trend window | 7 days | **0 switches the trend sensor off.** The projection keeps working. |
-| Remind after | 3 days | Days without a measurement before the reminder fires. **0 switches it off**, together with its event and action. |
 | Allow manual entry | off with a source | Lets the manual weight entity record measurements. Always on when there is no weight source. |
 | Largest accepted change | 0 kg | Reject measurements that jump further than this from the previous one. **0 accepts everything**, which is the default on purpose: most large jumps are real. |
 | Extra recalculation | 0 min | Recalculate every N minutes on top of midnight and every measurement. See [How often the sensors update](#how-often-the-sensors-update). |
@@ -100,6 +98,8 @@ it.
 | Make it the active goal | On by default. Switch it off to record a goal from the past, or one you plan for later. |
 | Start weight, start and end date | Today and the latest weight are suggested, nothing more. The end day counts towards the goal in full. |
 | Target weight or change per week | Whichever the goal is defined by. |
+| On track tolerance | How far you may deviate from the plan before the status changes, 0.5 kg unless the active goal has another. A goal that ends at most this far from its target counts as reached. |
+| Remind after | Days without a measurement before the reminder fires, 3 unless the active goal has another. **0 switches it off**, together with its event and action. Without an active goal there is no reminder. |
 
 Goals may overlap and leave gaps between them. **Exactly one goal is active, or
 none.** Every sensor, the status, the events and the goal entities follow the
@@ -111,15 +111,24 @@ goal is always one you add. That keeps a correction from leaving a goal behind
 that was never meant, and it keeps the plan of a finished goal the way it was.
 
 Once its last day is over, a goal gets an outcome: the last weight recorded
-inside its period, and whether that reached the target. A maintain goal counts
-as reached inside the on track tolerance. The outcome is remembered, so it
-survives the readings it came from leaving the two year history.
+inside its period, and whether that reached the target. Within the goal's own
+on track tolerance of the target counts as reached, and so does beyond it,
+except for a maintain goal. Changing the tolerance of one goal never changes
+the outcome of another. The outcome is remembered, so it survives the readings
+it came from leaving the two year history.
+
+While a goal runs, the status turns `reached` only once the target itself is
+reached. Inside the tolerance before that it is `on_track`.
 
 Updating from 0.10 or earlier turns the one goal there was into the first goal
 of the list, named after its period, and makes it active. Nothing else changes:
 the entity IDs, the values and the status stay the same. Rename it with **Change
 goal**, and add your earlier goals as inactive ones if you want them in the
 chart.
+
+Updating from 0.11.0-beta.4 or earlier hands the on track tolerance and the
+remind after days of the person to every goal it has, and takes them off
+**Configure**.
 
 ## Entities
 
@@ -132,6 +141,8 @@ instance runs in. Display names are translated.
 | `number.<name>_start_weight` | Number | Weight the active goal starts from. |
 | `number.<name>_target_weight` | Number | Read only when the goal is defined by rate. |
 | `number.<name>_rate_per_week` | Number | Read only when the goal is defined by target weight. |
+| `number.<name>_tolerance` | Number | On track tolerance of the active goal. |
+| `number.<name>_overdue_days` | Number | Remind after, in days, of the active goal. 0 switches the reminder off. |
 | `number.<name>_manual_weight` | Number | Holds a weight until you confirm it. Nothing is recorded by typing alone. Unavailable while a weight source is configured, unless you switch manual entry back on. |
 | `date.<name>_manual_date` | Date | The day that weight is recorded for. Shows today until you pick another one, and goes back to today after each reading. Days in the future are refused. |
 | `date.<name>_start_date` | Date | First day of the goal. |
@@ -168,14 +179,15 @@ direction reports `behind`.
 The status follows the latest reading: inside the tolerance band is
 `on_track`, outside it is `ahead` or `behind`. A weight sitting on the edge of
 the band can therefore change the status with every measurement; widen the
-tolerance if that is too restless.
+tolerance of the goal if that is too restless.
 
 ## Services
 
-All services take the goal as their target, and it can be named in any of the
-ways the picker offers: the device, any entity of it, or the area, floor or
-label it carries. Every one of them comes down to the same goal, so a sensor is
-as good an anchor as the device itself.
+In the action editor every service asks for one thing first, the person, and
+offers the devices of the integration. Every entity of a person leads to the
+same goal, so there is nothing to choose between them. In YAML the person can
+also be named the way the examples below do, by any of its entities, or by the
+area, floor or label it carries; automations written that way keep working.
 
 | Service | Purpose |
 | --- | --- |
@@ -371,7 +383,8 @@ entity: sensor.alex_status
 
 One entity is all it needs. From it the card finds the device and every other
 entity of the same goal, so the numbers, the dates, the buttons and the chart
-all work without listing anything.
+all work without listing anything. The visual editor asks for the person and
+writes its `device_id` instead, which works the same way.
 
 It shows the current weight and how far it is from the plan, the chart, the two
 progress bars next to each other, the actions that are currently available, and
@@ -430,8 +443,8 @@ which wins over the flat form.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `entity` | – | Any entity of the goal. Required unless you set `device_id` or `entities`. |
-| `device_id` | – | Alternative anchor, for generated dashboards. |
+| `entity` | – | Any entity of the goal. Required unless you set `device_id` or `entities`. A tap without `tap_action` opens it. |
+| `device_id` | – | The device of the goal, what the visual editor writes. Without `entity` a tap opens the status sensor. |
 | `entities` | – | Override individual entities by key, for example `entities: {weight: sensor.something_else}`. Only needed if discovery gets something wrong. |
 | `name` | device name | Header text. |
 | `icon` | `mdi:scale-bathroom` | Header icon. |
@@ -678,7 +691,7 @@ set the start weight, the target weight and both dates.
 
 **The target weight cannot be edited in the card.** The goal is defined by
 change per week, so the target is derived. Edit the rate instead, or switch the
-mode under **Configure → Settings**.
+mode with **Change goal** on the integration page.
 
 ## Events and actions
 
@@ -799,7 +812,7 @@ exactly at any resolution without sampling anything.
 either outside the plausible range or beyond the largest accepted change.
 
 **The target weight cannot be edited.** The goal is defined by change per week.
-Switch the mode under **Configure → Settings**.
+Switch the mode with **Change goal** on the integration page.
 
 **Everything is `unknown`.** No measurement has been recorded yet. Enter one
 through `number.<name>_manual_weight` or wait for the source entity.

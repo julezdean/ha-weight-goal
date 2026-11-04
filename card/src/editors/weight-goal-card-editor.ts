@@ -119,6 +119,9 @@ export class WeightGoalCardEditor extends LitElement {
       line: "smooth",
       average: 7,
       ...config,
+      // A card written before the device picker names an entity; the picker
+      // shows the device it belongs to.
+      device_id: config.device_id ?? this._entityDevice(),
       // Custom badges are objects, which the multi-select cannot represent.
       // Showing only the built-in ones keeps the picker honest; the object
       // form stays available in YAML and is restored on change.
@@ -141,9 +144,27 @@ export class WeightGoalCardEditor extends LitElement {
     };
   }
 
+  /** The device of the configured `entity`, if the registry knows one. */
+  private _entityDevice(): string | undefined {
+    const entity = this._config?.entity;
+    return (entity && this.hass?.entities?.[entity]?.device_id) || undefined;
+  }
+
   private _changed = (event: CustomEvent): void => {
     event.stopPropagation();
     const value = { ...(event.detail.value as WeightGoalCardConfig) };
+    const fromEntity = this._entityDevice();
+    if (!this._config?.device_id && value.device_id === fromEntity) {
+      // Only shown, not chosen: the card keeps finding its device by entity.
+      delete value.device_id;
+    } else if (
+      value.entity &&
+      value.device_id !== (this._config?.device_id ?? fromEntity)
+    ) {
+      // Another person was picked. The old entity would still lead the card
+      // to the old one and be what a tap opens.
+      delete value.entity;
+    }
     if (typeof value.range === "string" && /^\d+$/.test(value.range)) {
       value.range = Number(value.range);
     }

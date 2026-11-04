@@ -107,9 +107,7 @@ async def test_options_settings(hass: HomeAssistant, mock_entry: MockConfigEntry
         {
             CONF_MIN_WEIGHT: 30.0,
             CONF_MAX_WEIGHT: 200.0,
-            CONF_TOLERANCE: 1.0,
             CONF_TREND_WINDOW_DAYS: 14,
-            CONF_OVERDUE_DAYS: 0,
             "max_jump": 0.0,
             CONF_RECALCULATION_INTERVAL: 0,
         },
@@ -117,8 +115,10 @@ async def test_options_settings(hass: HomeAssistant, mock_entry: MockConfigEntry
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert mock_entry.options[CONF_TOLERANCE] == 1.0
     assert mock_entry.options[CONF_TREND_WINDOW_DAYS] == 14
+    # Both belong to the goal now; the person has no second place for them.
+    assert CONF_TOLERANCE not in mock_entry.options
+    assert CONF_OVERDUE_DAYS not in mock_entry.options
 
 
 async def test_options_rejects_inverted_range(
@@ -137,9 +137,7 @@ async def test_options_rejects_inverted_range(
         {
             CONF_MIN_WEIGHT: 200.0,
             CONF_MAX_WEIGHT: 30.0,
-            CONF_TOLERANCE: 0.5,
             CONF_TREND_WINDOW_DAYS: 7,
-            CONF_OVERDUE_DAYS: 3,
             "max_jump": 0.0,
             CONF_RECALCULATION_INTERVAL: 0,
         },

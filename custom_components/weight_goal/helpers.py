@@ -20,7 +20,9 @@ from .const import (
     CONF_START_DATE,
     CONF_START_WEIGHT,
     CONF_TARGET_WEIGHT,
+    CONF_TOLERANCE,
     DEFAULT_GOAL_MODE,
+    DEFAULT_TOLERANCE,
     DIRECTION_GAIN,
     DIRECTION_LOSE,
     DIRECTION_MAINTAIN,
@@ -112,6 +114,12 @@ def goal_name_error(name: str, taken: Iterable[str]) -> str | None:
     if any(name.casefold() == other.casefold() for other in taken):
         return "name_taken"
     return None
+
+
+def goal_tolerance(goal: Mapping[str, Any]) -> float:
+    """Half width of a goal's on track band, in kg."""
+    raw = goal.get(CONF_TOLERANCE)
+    return DEFAULT_TOLERANCE if raw is None else float(raw)
 
 
 def normalise_goal(goal: Mapping[str, Any]) -> dict[str, Any]:

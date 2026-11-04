@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format follows
   status and badges stop opening more-info on their own; the record field,
   goal settings, goal list and chart keep their clicks. Without them nothing
   changes. The visual editor has them under **Interactions**.
+- `number.<name>_tolerance` and `number.<name>_overdue_days` hold the on
+  track tolerance and the remind after days of the active goal. The card's goal
+  settings show both, and `set_goal` and `create_goal` take `tolerance` and
+  `overdue_days`.
 
 ### Changed
 
@@ -55,6 +59,25 @@ All notable changes to this project are documented here. The format follows
   `weight_progress` are unknown.
 - A card that shows only chosen sections now also needs `show_goals: false`,
   or the goal list appears below it after the update.
+- The on track tolerance and the remind after days belong to each goal and are
+  no longer set under **Configure → Settings**. Updating copies the values the
+  person had into every goal, which migrates the config entry to version 3; it
+  cannot be loaded by 0.11.0-beta.4 or earlier again. A new goal takes them
+  over from the active one. Without an active goal there is
+  no overdue reminder.
+- A goal that ends within its tolerance of the target counts as reached, for a
+  goal that loses or gains weight as well, not only for one that holds it. The
+  outcome uses the goal's own tolerance, so changing the tolerance today no
+  longer changes the outcome of a goal that is already over. While a goal runs,
+  `reached` still needs the target itself.
+- Actions ask for the person, with a picker of the integration's devices,
+  instead of a target that listed every entity of every person. Every entity
+  led to the same goal, so the choice between them meant nothing. Calls in YAML
+  that name an entity, area, floor or label keep working.
+- The card's visual editor picks the person in the same way and writes
+  `device_id`. A card set up by `entity` keeps it until another person is
+  picked. A tap without `tap_action` on a card without `entity` opens the
+  status sensor.
 - The visual editor offers **Save reading** only for a goal that takes manual
   readings, and **Day of the reading** only while **Save reading** is on. Both
   used to be there for a card that cannot show them. Values already in the

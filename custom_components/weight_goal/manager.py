@@ -99,9 +99,10 @@ from .const import (
 from .helpers import (
     direction_of,
     direction_sign,
+    goal_name_error,
+    goal_tolerance,
     goal_weeks,
     linear_rate,
-    goal_name_error,
     next_local_midnight,
     normalise_goal,
     parse_date,
@@ -292,8 +293,9 @@ class WeightGoalManager:
 
     @property
     def tolerance(self) -> float:
-        """Half width of the on track band, in kg."""
-        return float(self._option(CONF_TOLERANCE, DEFAULT_TOLERANCE))
+        """Half width of the on track band of the active goal, in kg."""
+        goal = self.active_goal
+        return DEFAULT_TOLERANCE if goal is None else goal_tolerance(goal.data)
 
     @property
     def trend_window_days(self) -> int:
@@ -302,8 +304,15 @@ class WeightGoalManager:
 
     @property
     def overdue_days(self) -> int:
-        """Days without a measurement before the overdue event. Zero is off."""
-        return int(self._option(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS))
+        """Days without a measurement before the overdue event. Zero is off.
+
+        The reminder belongs to the active goal, so without one there is none.
+        """
+        goal = self.active_goal
+        if goal is None:
+            return 0
+        raw = goal.data.get(CONF_OVERDUE_DAYS)
+        return int(DEFAULT_OVERDUE_DAYS if raw is None else raw)
 
     @property
     def max_jump(self) -> float:
@@ -444,12 +453,18 @@ class WeightGoalManager:
         if result is None:
             return None
 
+        # Judged with the goal's own tolerance, so changing the active goal
+        # never moves the outcome of another one. Within it of the target counts
+        # as reached: the plan ends on the target, and a weight inside the band
+        # around it on the last day is on track. Beyond the target counts too,
+        # except for a goal that holds a weight.
         weight = float(result["weight"])
+        tolerance = goal_tolerance(data)
         sign = direction_sign(direction_of(float(start_weight), float(target)))
         if sign == 0:
-            reached = abs(weight - float(target)) <= self.tolerance
+            reached = abs(weight - float(target)) <= tolerance
         else:
-            reached = (float(target) - weight) * sign <= 0
+            reached = (float(target) - weight) * sign <= tolerance
         return {**result, "reached": reached}
 
     def goals_payload(self) -> list[dict[str, Any]]:
@@ -467,6 +482,8 @@ class WeightGoalManager:
                 CONF_RATE_PER_WEEK: goal.data.get(CONF_RATE_PER_WEEK),
                 CONF_START_DATE: goal.data.get(CONF_START_DATE),
                 CONF_END_DATE: goal.data.get(CONF_END_DATE),
+                CONF_TOLERANCE: goal_tolerance(goal.data),
+                CONF_OVERDUE_DAYS: goal.data.get(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS),
                 "result": self.goal_result(goal),
             }
             for goal in self.goals
@@ -1081,8 +1098,9 @@ class WeightGoalManager:
         """Add a goal the way the Add goal dialog does, and return its id.
 
         What the dialog suggests is filled in here as well: today as the
-        start, the latest weight as the start weight. Of target weight and
-        rate only the one the goal mode names is taken; the other is derived.
+        start, the latest weight as the start weight, and the tolerance and
+        overdue days of the active goal. Of target weight and rate only the
+        one the goal mode names is taken; the other is derived.
         """
         name = name.strip()
         if error := goal_name_error(name, (other.title for other in self.goals)):
@@ -1095,6 +1113,14 @@ class WeightGoalManager:
             if value is not None
         }
         mode = data.setdefault(CONF_GOAL_MODE, DEFAULT_GOAL_MODE)
+        active = self.active_goal
+        template = {} if active is None else active.data
+        data.setdefault(
+            CONF_TOLERANCE, template.get(CONF_TOLERANCE, DEFAULT_TOLERANCE)
+        )
+        data.setdefault(
+            CONF_OVERDUE_DAYS, template.get(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS)
+        )
         data.setdefault(CONF_START_DATE, dt_util.now(self.zone).date().isoformat())
         if CONF_START_WEIGHT not in data:
             if self.current_weight is None:

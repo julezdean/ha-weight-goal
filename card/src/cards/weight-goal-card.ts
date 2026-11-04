@@ -11,7 +11,7 @@ import {
   isActionable,
   type ActionKind,
 } from "../lib/actions";
-import type { ChartOptions, WeightGoalCardConfig } from "../types";
+import type { ChartOptions, HomeAssistant, WeightGoalCardConfig } from "../types";
 
 import "../components/wg-actions";
 import "../components/wg-badges";
@@ -32,11 +32,14 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
   });
 
   public static getStubConfig(
-    _hass: unknown,
+    hass: HomeAssistant | undefined,
     entities: string[],
   ): Partial<WeightGoalCardConfig> {
     const status = entities.find((id) => id.endsWith("_status"));
-    return { type: `custom:${CARD_TYPE}`, entity: status ?? entities[0] };
+    const deviceId = status ? hass?.entities?.[status]?.device_id : undefined;
+    return deviceId
+      ? { type: `custom:${CARD_TYPE}`, device_id: deviceId }
+      : { type: `custom:${CARD_TYPE}`, entity: status ?? entities[0] };
   }
 
   public static async getConfigElement(): Promise<HTMLElement> {
@@ -81,15 +84,17 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
    * Home Assistant carries the action out, from the card's own config: it
    * picks the `<action>_action` that belongs to the gesture, asks for
    * `confirmation`, and falls back to more-info of `entity` for a tap that has
-   * none.
+   * none. A card set up by device has no `entity`; the status sensor, the
+   * entity the rest of the card leads to as well, stands in for it.
    */
   private _fireAction(action: ActionKind): void {
     if (!this._config) {
       return;
     }
+    const entity = this._config.entity ?? this._model?.context.target;
     this.dispatchEvent(
       new CustomEvent("hass-action", {
-        detail: { config: this._config, action },
+        detail: { config: { ...this._config, entity }, action },
         bubbles: true,
         composed: true,
       }),

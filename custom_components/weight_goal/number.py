@@ -8,21 +8,25 @@ from homeassistant.components.number import (
     NumberEntity,
     NumberMode,
 )
-from homeassistant.const import UnitOfMass
+from homeassistant.const import UnitOfMass, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import WeightGoalConfigEntry
 from .const import (
+    CONF_OVERDUE_DAYS,
     CONF_RATE_PER_WEEK,
     CONF_START_WEIGHT,
     CONF_TARGET_WEIGHT,
+    CONF_TOLERANCE,
     DOMAIN,
     KEY_MANUAL_WEIGHT,
+    KEY_OVERDUE_DAYS,
     KEY_RATE_PER_WEEK,
     KEY_START_WEIGHT,
     KEY_TARGET_WEIGHT,
+    KEY_TOLERANCE,
     MODE_RATE,
     MODE_TARGET,
     RATE_LIMIT_PER_WEEK,
@@ -43,6 +47,8 @@ async def async_setup_entry(
             StartWeightNumber(manager),
             TargetWeightNumber(manager),
             RatePerWeekNumber(manager),
+            ToleranceNumber(manager),
+            OverdueDaysNumber(manager),
             ManualWeightNumber(manager),
         ]
     )
@@ -167,6 +173,61 @@ class RatePerWeekNumber(WeightGoalNumber):
                 translation_placeholders={"mode": self._manager.goal_mode},
             )
         await self._manager.async_set_goal(**{CONF_RATE_PER_WEEK: value})
+
+
+class ToleranceNumber(WeightGoalNumber):
+    """Half width of the band around the plan of the active goal."""
+
+    _attr_device_class = NumberDeviceClass.WEIGHT
+    _attr_native_unit_of_measurement = UnitOfMass.KILOGRAMS
+    _attr_native_step = 0.1
+    _attr_native_min_value = 0
+    _attr_native_max_value = 20
+
+    def __init__(self, manager: WeightGoalManager) -> None:
+        """Initialise."""
+        super().__init__(manager, KEY_TOLERANCE)
+
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the tolerance of the active goal."""
+        return self._manager.tolerance
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Store a new tolerance."""
+        await self._manager.async_set_goal(**{CONF_TOLERANCE: value})
+
+
+class OverdueDaysNumber(WeightGoalNumber):
+    """Days without a reading before the active goal reminds of one."""
+
+    _attr_native_unit_of_measurement = UnitOfTime.DAYS
+    _attr_native_step = 1
+    _attr_native_min_value = 0
+    _attr_native_max_value = 90
+
+    def __init__(self, manager: WeightGoalManager) -> None:
+        """Initialise."""
+        super().__init__(manager, KEY_OVERDUE_DAYS)
+
+    @property
+    def available(self) -> bool:
+        """Only while a goal is active; there is nothing to show or edit else."""
+        return self._manager.active_goal is not None
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the overdue days of the active goal. Zero is off."""
+        return self._manager.overdue_days
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Store new overdue days."""
+        await self._manager.async_set_goal(**{CONF_OVERDUE_DAYS: int(value)})
 
 
 class ManualWeightNumber(_WeightNumber):

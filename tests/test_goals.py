@@ -11,6 +11,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -23,6 +24,7 @@ from custom_components.weight_goal.const import (
     CONF_ACTIVE_GOAL,
     CONF_END_DATE,
     CONF_GOAL_MODE,
+    CONF_OVERDUE_DAYS,
     CONF_RATE_PER_WEEK,
     CONF_START_DATE,
     CONF_START_WEIGHT,
@@ -34,6 +36,7 @@ from custom_components.weight_goal.const import (
     MODE_TARGET,
     SERVICE_CREATE_GOAL,
     SERVICE_GET_MEASUREMENTS,
+    SERVICE_SET_GOAL,
     STATUS_AHEAD,
     STATUS_ENDED,
     STATUS_NO_GOAL,
@@ -144,15 +147,16 @@ async def test_the_single_goal_of_version_1_becomes_the_active_goal(
 
     await _setup(hass, entry)
 
-    assert entry.version == 2
+    assert entry.version == 3
     assert CONF_START_WEIGHT not in entry.options
     assert CONF_GOAL_MODE not in entry.options
-    assert entry.options[CONF_TOLERANCE] == 0.5
+    assert CONF_TOLERANCE not in entry.options
     (goal_id,) = entry.subentries
     goal = entry.subentries[goal_id]
     assert goal.title == "2026-02-01 – 2026-02-20"
     assert goal.data[CONF_TARGET_WEIGHT] == 73.0
     assert goal.data[CONF_GOAL_MODE] == MODE_TARGET
+    assert goal.data[CONF_TOLERANCE] == 0.5
     assert entry.options[CONF_ACTIVE_GOAL] == goal_id
     assert _state(hass, "number.julien_start_weight") == "78.0"
     assert _state(hass, "select.julien_active_goal") == goal.title
@@ -174,12 +178,47 @@ async def test_an_entry_without_a_goal_migrates_to_an_empty_list(
     entry.add_to_hass(hass)
     await _setup(hass, entry)
 
-    assert entry.version == 2
+    assert entry.version == 3
     assert not entry.subentries
+    assert CONF_TOLERANCE not in entry.options
     assert CONF_ACTIVE_GOAL not in entry.options
     assert _state(hass, "sensor.julien_status") == STATUS_NO_GOAL
     assert _state(hass, "select.julien_active_goal") == "none"
     assert _state(hass, "number.julien_target_weight") == "unavailable"
+
+
+async def test_version_2_hands_tolerance_and_overdue_days_to_every_goal(
+    hass: HomeAssistant, frozen
+) -> None:
+    """Both leave the person; each goal keeps the values it was judged by."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Julien",
+        data={CONF_NAME: "Julien"},
+        version=2,
+        options={CONF_TOLERANCE: 1.2, CONF_OVERDUE_DAYS: 5, CONF_ACTIVE_GOAL: "a"},
+        subentries_data=[
+            {
+                "data": {**SUMMER, CONF_GOAL_MODE: MODE_TARGET},
+                "subentry_id": subentry_id,
+                "subentry_type": SUBENTRY_GOAL,
+                "title": title,
+                "unique_id": None,
+            }
+            for subentry_id, title in (("a", "Spring"), ("b", "Autumn"))
+        ],
+    )
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+
+    assert entry.version == 3
+    assert CONF_TOLERANCE not in entry.options
+    assert CONF_OVERDUE_DAYS not in entry.options
+    for goal in entry.subentries.values():
+        assert goal.data[CONF_TOLERANCE] == 1.2
+        assert goal.data[CONF_OVERDUE_DAYS] == 5
+    assert _state(hass, "number.julien_tolerance") == "1.2"
+    assert _state(hass, "number.julien_overdue_days") == "5"
 
 
 # ---------------------------------------------------------------------------
@@ -507,6 +546,102 @@ async def test_an_ended_goal_reports_its_last_weight(
     assert goals["Winter"]["result"]["weight"] == 79.6
 
 
+async def test_an_ended_goal_is_judged_with_its_own_tolerance(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """0.6 kg short of the target: reached within 1 kg, missed within 0.5 kg.
+
+    Widening the tolerance of the active goal afterwards leaves both alone.
+    """
+    await _setup(hass, mock_entry)
+    manager = mock_entry.runtime_data
+    for day, weight in ((5, 80.5), (20, 79.6), (40, 79.9)):
+        await manager.async_record_weight(weight, timestamp=START - timedelta(days=day))
+    winter = {
+        CONF_START_WEIGHT: 81.0,
+        CONF_TARGET_WEIGHT: 79.0,
+        CONF_START_DATE: "2026-01-01",
+        CONF_END_DATE: "2026-02-15",
+    }
+    await _add_goal(
+        hass, mock_entry, "Strict", {**winter, CONF_TOLERANCE: 0.5}, activate=False
+    )
+    await _add_goal(
+        hass, mock_entry, "Loose", {**winter, CONF_TOLERANCE: 1.0}, activate=False
+    )
+
+    def outcome() -> dict[str, bool]:
+        return {
+            g["name"]: g["result"]["reached"]
+            for g in manager.goals_payload()
+            if g["result"] is not None
+        }
+
+    assert outcome() == {"Strict": False, "Loose": True}
+
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": "number.julien_tolerance", "value": 3.0},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert goal_data(mock_entry)[CONF_TOLERANCE] == 3.0
+    assert outcome() == {"Strict": False, "Loose": True}
+
+
+async def test_a_new_goal_takes_over_tolerance_and_overdue_days(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    """From the active goal, in the dialog and in the action alike."""
+    await _setup(hass, mock_entry)
+    device = dr.async_get(hass).async_get_device({(DOMAIN, mock_entry.entry_id)})
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_GOAL,
+        {"device_id": device.id, CONF_TOLERANCE: 1.5, CONF_OVERDUE_DAYS: 7},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert goal_data(mock_entry)[CONF_TOLERANCE] == 1.5
+    assert goal_data(mock_entry)[CONF_OVERDUE_DAYS] == 7
+
+    await _add_goal(hass, mock_entry, "Summer", SUMMER, activate=False)
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CREATE_GOAL,
+        {
+            "device_id": device.id,
+            CONF_NAME: "Autumn",
+            CONF_START_WEIGHT: 72.0,
+            CONF_TARGET_WEIGHT: 70.0,
+            CONF_START_DATE: "2026-09-01",
+            CONF_END_DATE: "2026-11-30",
+            CONF_ACTIVATE: False,
+        },
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+    for name in ("Summer", "Autumn"):
+        data = goal_data(mock_entry, _goal_id(mock_entry, name))
+        assert data[CONF_TOLERANCE] == 1.5
+        assert data[CONF_OVERDUE_DAYS] == 7
+
+
+async def test_without_an_active_goal_there_is_no_reminder(
+    hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
+) -> None:
+    await _setup(hass, mock_entry)
+    assert _state(hass, "number.julien_overdue_days") == "3"
+    await mock_entry.runtime_data.async_reset_goal()
+    await hass.async_block_till_done()
+
+    assert mock_entry.runtime_data.overdue_days == 0
+    assert _state(hass, "number.julien_overdue_days") == "unavailable"
+    assert _state(hass, "number.julien_tolerance") == "unavailable"
+
+
 async def test_get_measurements_returns_the_goals(
     hass: HomeAssistant, frozen, mock_entry: MockConfigEntry
 ) -> None:
@@ -526,6 +661,8 @@ async def test_get_measurements_returns_the_goals(
             CONF_RATE_PER_WEEK: -0.5,
             CONF_START_DATE: "2026-03-01",
             CONF_END_DATE: "2026-05-09",
+            CONF_TOLERANCE: 0.5,
+            CONF_OVERDUE_DAYS: 3,
             "result": None,
         }
     ]

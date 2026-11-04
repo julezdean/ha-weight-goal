@@ -104,7 +104,7 @@ USER_SCHEMA = vol.Schema(
 class WeightGoalConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the initial configuration."""
 
-    VERSION = 2
+    VERSION = 3
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -120,9 +120,7 @@ class WeightGoalConfigFlow(ConfigFlow, domain=DOMAIN):
                 options = {
                     CONF_MIN_WEIGHT: DEFAULT_MIN_WEIGHT,
                     CONF_MAX_WEIGHT: DEFAULT_MAX_WEIGHT,
-                    CONF_TOLERANCE: DEFAULT_TOLERANCE,
                     CONF_TREND_WINDOW_DAYS: DEFAULT_TREND_WINDOW_DAYS,
-                    CONF_OVERDUE_DAYS: DEFAULT_OVERDUE_DAYS,
                     CONF_MAX_JUMP: DEFAULT_MAX_JUMP,
                     CONF_RECALCULATION_INTERVAL: DEFAULT_RECALCULATION_INTERVAL,
                 }
@@ -204,18 +202,10 @@ class WeightGoalOptionsFlow(OptionsFlow):
                     default=options.get(CONF_MAX_WEIGHT, DEFAULT_MAX_WEIGHT),
                 ): _number(1, 500, 0.5, "kg"),
                 vol.Required(
-                    CONF_TOLERANCE,
-                    default=options.get(CONF_TOLERANCE, DEFAULT_TOLERANCE),
-                ): _number(0, 20, 0.1, "kg"),
-                vol.Required(
                     CONF_TREND_WINDOW_DAYS,
                     default=options.get(
                         CONF_TREND_WINDOW_DAYS, DEFAULT_TREND_WINDOW_DAYS
                     ),
-                ): _number(0, 90, 1, "d"),
-                vol.Required(
-                    CONF_OVERDUE_DAYS,
-                    default=options.get(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS),
                 ): _number(0, 90, 1, "d"),
                 vol.Required(
                     CONF_MAX_JUMP, default=options.get(CONF_MAX_JUMP, DEFAULT_MAX_JUMP)
@@ -337,7 +327,8 @@ class GoalSubentryFlow(ConfigSubentryFlow):
     async def async_step_values(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Start, end and either the target weight or the weekly rate."""
+        """Start, end, either the target weight or the weekly rate, and the
+        tolerance and overdue days of the goal."""
         rate_mode = self._goal.get(CONF_GOAL_MODE) == MODE_RATE
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -354,6 +345,10 @@ class GoalSubentryFlow(ConfigSubentryFlow):
         entry = self._get_entry()
         manager = getattr(entry, "runtime_data", None)
         current = None if manager is None else manager.current_weight
+        # A new goal starts from the settings of the active one, the way it
+        # starts from the latest weight; there is no second place to set them.
+        active = None if manager is None else manager.active_goal
+        template = {} if active is None else active.data
         minimum = float(entry.options.get(CONF_MIN_WEIGHT, DEFAULT_MIN_WEIGHT))
         maximum = float(entry.options.get(CONF_MAX_WEIGHT, DEFAULT_MAX_WEIGHT))
 
@@ -386,6 +381,23 @@ class GoalSubentryFlow(ConfigSubentryFlow):
                     CONF_TARGET_WEIGHT, description=suggested(CONF_TARGET_WEIGHT)
                 )
             ] = _number(minimum, maximum, 0.1, "kg")
+        fields[
+            vol.Required(
+                CONF_TOLERANCE,
+                default=self._goal.get(
+                    CONF_TOLERANCE, template.get(CONF_TOLERANCE, DEFAULT_TOLERANCE)
+                ),
+            )
+        ] = _number(0, 20, 0.1, "kg")
+        fields[
+            vol.Required(
+                CONF_OVERDUE_DAYS,
+                default=self._goal.get(
+                    CONF_OVERDUE_DAYS,
+                    template.get(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS),
+                ),
+            )
+        ] = _number(0, 90, 1, "d")
         return self.async_show_form(
             step_id="values", data_schema=vol.Schema(fields), errors=errors
         )

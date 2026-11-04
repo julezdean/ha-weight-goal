@@ -90,9 +90,8 @@ export const de: Record<TranslationKey, string> = {
 
   "editor.loading":
     "Der Editor wird geladen … bleibt das stehen, bearbeite die Karte in YAML.",
-  "editor.entity": "Entität des Ziels",
-  "editor.entity_help":
-    "Eine beliebige Entität des Ziels. Den Rest findet die Karte selbst.",
+  "editor.device": "Person",
+  "editor.device_help": "Das Road-to-Weight-Goal-Gerät. Seine Entitäten findet die Karte selbst.",
   "editor.name": "Name",
   "editor.icon": "Symbol",
   "editor.badges": "Badges",

@@ -14,6 +14,8 @@ const ENTITIES = {
   start_weight: "number.julien_start_weight",
   target_weight: "number.julien_target_weight",
   rate_per_week: "number.julien_rate_per_week",
+  tolerance: "number.julien_tolerance",
+  overdue_days: "number.julien_overdue_days",
   start_date: "date.julien_start_date",
   manual_weight: "number.julien_manual_weight",
   manual_date: "date.julien_manual_date",
@@ -28,6 +30,8 @@ function build(goalMode: string | null): { hass: HomeAssistant; model: GoalModel
     [ENTITIES.start_weight]: "80",
     [ENTITIES.target_weight]: "74",
     [ENTITIES.rate_per_week]: "-0.38",
+    [ENTITIES.tolerance]: "0.5",
+    [ENTITIES.overdue_days]: "3",
     [ENTITIES.start_date]: "2026-06-14",
     [ENTITIES.manual_weight]: "unknown",
     [ENTITIES.manual_date]: "2026-09-17",
@@ -147,6 +151,30 @@ describe("the derived goal field", () => {
       expect(input.disabled).toBe(false);
     }
     expect(root.querySelector("#derived")).toBeNull();
+  });
+});
+
+describe("tolerance and overdue days", () => {
+  it("are fields of the goal and write to their own entities", async () => {
+    const { hass, model } = build("target");
+    const callService = vi.fn(async () => ({}));
+    Object.assign(hass, { callService });
+    const root = (await render("wg-goal-editor", { hass, model, open: true })).shadowRoot!;
+    const inputs = [...root.querySelectorAll<HTMLInputElement>("input.number")];
+    const [tolerance, overdue] = inputs.slice(-2);
+    expect(tolerance.value).toBe("0.5");
+    expect(overdue.value).toBe("3");
+    expect(tolerance.disabled).toBe(false);
+
+    tolerance.value = "1,2";
+    tolerance.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+    expect(callService).toHaveBeenCalledWith(
+      "number",
+      "set_value",
+      { value: 1.2 },
+      { entity_id: ENTITIES.tolerance },
+    );
   });
 });
 

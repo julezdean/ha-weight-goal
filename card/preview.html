@@ -565,6 +565,8 @@
           start_weight: "Start weight",
           target_weight: "Target weight",
           rate_per_week: "Change per week",
+          tolerance: "Tolerance",
+          overdue_days: "Remind after",
           manual_weight: "Weight to record",
           manual_date: "Date to record",
           start_date: "Start date",
@@ -586,6 +588,8 @@
           start_weight: "Startgewicht",
           target_weight: "Zielgewicht",
           rate_per_week: "Änderung pro Woche",
+          tolerance: "Toleranz",
+          overdue_days: "Erinnern nach",
           manual_weight: "Gewicht zum Erfassen",
           manual_date: "Datum zum Erfassen",
           start_date: "Startdatum",
@@ -633,6 +637,8 @@
         target_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
         // number.py sets "<mass>/w", not the plain mass unit.
         rate_per_week: { domain: "number", unit: "kg/w", precision: 2, min: -3, max: 3, step: 0.01 },
+        tolerance: { domain: "number", unit: "kg", precision: 1, min: 0, max: 20, step: 0.1 },
+        overdue_days: { domain: "number", unit: "d", precision: 0, min: 0, max: 90, step: 1 },
         manual_weight: { domain: "number", unit: "kg", precision: 1, min: 20, max: 300, step: 0.1 },
         manual_date: { domain: "date" },
         start_date: { domain: "date" },
@@ -876,6 +882,10 @@
             : null;
         const weeks = days && days >= 1 ? days / 7 : null;
 
+        // Like number.<name>_tolerance: the tolerance of the active goal.
+        const tolerance = numberState(id("tolerance"));
+        if (tolerance !== null) goal.tolerance = tolerance;
+
         let targetWeight = numberState(id("target_weight"));
         let rate = numberState(id("rate_per_week"));
         if (goal.goalMode === "rate" && startWeight !== null && rate !== null && weeks) {
@@ -1013,7 +1023,15 @@
           active_goal: activeEntry(goal)?.name ?? null,
         });
 
-        syncGoalList(goal, { startWeight, targetWeight, ratePerWeek: rate, startDate, endDate });
+        syncGoalList(goal, {
+          startWeight,
+          targetWeight,
+          ratePerWeek: rate,
+          startDate,
+          endDate,
+          tolerance: goal.tolerance,
+          overdueDays: numberState(id("overdue_days")) ?? 3,
+        });
 
         // The record button only exists to confirm a staged weight.
         if (!goal.absent.has("record_weight")) {
@@ -1040,11 +1058,13 @@
         const inside = goal.measurements.filter((m) => m.t >= begin && m.t < finish);
         if (!inside.length) return null;
         const last = inside[inside.length - 1];
+        // Judged with the goal's own tolerance; within it of the target counts.
+        const tolerance = entry.tolerance ?? 0.5;
         const sign = directionSign(directionOf(entry.startWeight, entry.targetWeight));
         const reached =
           sign === 0
-            ? Math.abs(last.v - entry.targetWeight) <= goal.tolerance
-            : (entry.targetWeight - last.v) * sign <= 0;
+            ? Math.abs(last.v - entry.targetWeight) <= tolerance
+            : (entry.targetWeight - last.v) * sign <= tolerance;
         return { weight: last.v, timestamp: new Date(last.t).toISOString(), reached };
       }
 
@@ -1069,6 +1089,8 @@
             rate_per_week: entry.ratePerWeek,
             start_date: entry.startDate,
             end_date: entry.endDate,
+            tolerance: entry.tolerance ?? 0.5,
+            overdue_days: entry.overdueDays ?? 3,
             result: goalResult(goal, entry),
           })),
         });
@@ -1108,12 +1130,23 @@
           ratePerWeek: rateMode ? value : round((targetWeight - startWeight) / (days / 7), 2),
           startDate,
           endDate: data.end_date,
+          // Taken over from the active goal, as async_create_goal does.
+          tolerance: data.tolerance ?? activeEntry(goal)?.tolerance ?? 0.5,
+          overdueDays: data.overdue_days ?? activeEntry(goal)?.overdueDays ?? 3,
         };
         goal.goalList.push(entry);
         if (data.activate !== false) selectGoal(goal, name);
       }
 
-      const GOAL_KEYS = ["start_weight", "target_weight", "rate_per_week", "start_date", "end_date"];
+      const GOAL_KEYS = [
+        "start_weight",
+        "target_weight",
+        "rate_per_week",
+        "start_date",
+        "end_date",
+        "tolerance",
+        "overdue_days",
+      ];
 
       /** Switch the active goal: its values move into the goal entities, or
        * those go unavailable when none is active. */
@@ -1134,6 +1167,8 @@
           rate_per_week: entry.ratePerWeek,
           start_date: entry.startDate,
           end_date: entry.endDate,
+          tolerance: entry.tolerance ?? 0.5,
+          overdue_days: entry.overdueDays ?? 3,
         };
         for (const key of GOAL_KEYS) {
           if (!goal.absent.has(key)) {
@@ -1368,6 +1403,8 @@
               ratePerWeek: spec.ratePerWeek ?? null,
               startDate: spec.startDate ?? null,
               endDate: spec.endDate ?? null,
+              tolerance: spec.tolerance ?? 0.5,
+              overdueDays: spec.overdueDays ?? 3,
             }]),
             ...(spec.otherGoals ?? []).map((other, i) => ({
               id: `other${i}`,
@@ -1440,6 +1477,8 @@
         if (spec.ratePerWeek !== undefined) set("rate_per_week", spec.ratePerWeek);
         if (spec.startDate !== undefined) set("start_date", spec.startDate);
         if (spec.endDate !== undefined) set("end_date", spec.endDate);
+        set("tolerance", goal.tolerance);
+        set("overdue_days", spec.overdueDays ?? 3);
         set("manual_weight", "unknown");
         // The integration answers with today until a day is staged, so the
         // field is never empty.
@@ -1668,8 +1707,9 @@
         slug: "legacy",
         name: "Legacy",
         goalMode: null,
-        // Too old for the goal list as well.
-        absent: ["active_goal"],
+        // Too old for the goal list as well, and for the goal's own tolerance
+        // and reminder.
+        absent: ["active_goal", "tolerance", "overdue_days"],
         startWeight: 86.0,
         targetWeight: 80.0,
         ratePerWeek: -0.5,

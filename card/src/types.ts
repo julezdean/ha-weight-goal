@@ -65,6 +65,8 @@ export const ENTITY_KEYS = {
     "start_weight",
     "target_weight",
     "rate_per_week",
+    "tolerance",
+    "overdue_days",
     "manual_weight",
   ],
   date: ["start_date", "end_date", "manual_date"],

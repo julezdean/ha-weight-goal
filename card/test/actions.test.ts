@@ -238,6 +238,28 @@ describe("with a tap_action", () => {
   });
 });
 
+describe("a card set up by device", () => {
+  it("opens more-info of the status sensor when a tap has no target", async () => {
+    const { card, fired } = await mount({
+      entity: undefined,
+      device_id: "dev1",
+      tap_action: { action: "more-info" },
+    });
+    press(haCard(card));
+    const [action] = fired.filter((f) => f.type === "hass-action");
+    expect((action.detail.config as WeightGoalCardConfig).entity).toBe("sensor.julien_status");
+  });
+
+  it("is what a new card starts from", async () => {
+    const { WeightGoalCard } = await import("../src/cards/weight-goal-card");
+    const hass = buildHass();
+    expect(WeightGoalCard.getStubConfig(hass, Object.keys(hass.states))).toEqual({
+      type: "custom:weight-goal-card",
+      device_id: "dev1",
+    });
+  });
+});
+
 describe("hold and double tap", () => {
   it("fires hold after a long press, and no tap", async () => {
     vi.useFakeTimers();

@@ -12,9 +12,7 @@ DOMAIN: Final = "weight_goal"
 CONF_SOURCE_ENTITY: Final = "source_entity"
 CONF_MIN_WEIGHT: Final = "min_weight"
 CONF_MAX_WEIGHT: Final = "max_weight"
-CONF_TOLERANCE: Final = "tolerance"
 CONF_TREND_WINDOW_DAYS: Final = "trend_window_days"
-CONF_OVERDUE_DAYS: Final = "overdue_days"
 CONF_MAX_JUMP: Final = "max_jump"
 CONF_ALLOW_MANUAL: Final = "allow_manual_entry"
 CONF_RECALCULATION_INTERVAL: Final = "recalculation_interval"
@@ -38,9 +36,13 @@ CONF_TARGET_WEIGHT: Final = "target_weight"
 CONF_RATE_PER_WEEK: Final = "rate_per_week"
 CONF_START_DATE: Final = "start_date"
 CONF_END_DATE: Final = "end_date"
+CONF_TOLERANCE: Final = "tolerance"
+CONF_OVERDUE_DAYS: Final = "overdue_days"
 
 #: Everything that defines a goal. ``CONF_GOAL_MODE`` belongs to the goal too:
-#: one goal can be planned by its target, the next by its weekly rate.
+#: one goal can be planned by its target, the next by its weekly rate. So do
+#: the tolerance, which decides how a goal came out, and the weigh-in rhythm,
+#: which a strict phase and a holding phase want different.
 GOAL_KEYS: Final = (
     CONF_GOAL_MODE,
     CONF_START_WEIGHT,
@@ -48,6 +50,8 @@ GOAL_KEYS: Final = (
     CONF_RATE_PER_WEEK,
     CONF_START_DATE,
     CONF_END_DATE,
+    CONF_TOLERANCE,
+    CONF_OVERDUE_DAYS,
 )
 
 CONF_SCRIPT_MEASUREMENT: Final = "script_measurement"
@@ -111,6 +115,8 @@ STORAGE_VERSION: Final = 1
 KEY_START_WEIGHT: Final = "start_weight"
 KEY_TARGET_WEIGHT: Final = "target_weight"
 KEY_RATE_PER_WEEK: Final = "rate_per_week"
+KEY_TOLERANCE: Final = "tolerance"
+KEY_OVERDUE_DAYS: Final = "overdue_days"
 KEY_MANUAL_WEIGHT: Final = "manual_weight"
 KEY_MANUAL_DATE: Final = "manual_date"
 KEY_START_DATE: Final = "start_date"

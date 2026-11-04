@@ -86,7 +86,7 @@ def make_entry(hass: HomeAssistant, **overrides) -> MockConfigEntry:
         data={CONF_NAME: "Julien"},
         options=merged,
         entry_id=entry_id,
-        version=2,
+        version=3,
         subentries_data=[
             {
                 "data": goal,

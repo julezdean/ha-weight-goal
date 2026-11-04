@@ -82,7 +82,7 @@ export abstract class WeightGoalBaseCard<
   public setConfig(config: TConfig): void {
     if (!config.entity && !config.device_id && !config.entities) {
       throw new Error(
-        "Set `entity` to one entity of a Road to Weight Goal device, for example sensor.<name>_status.",
+        "Set `device_id` to a Road to Weight Goal device, or `entity` to one of its entities, for example sensor.<name>_status.",
       );
     }
     this._config = config;

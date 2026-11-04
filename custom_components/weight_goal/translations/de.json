@@ -35,17 +35,13 @@
           "source_entity": "Gewichtsquelle",
           "min_weight": "Kleinstes plausibles Gewicht",
           "max_weight": "Größtes plausibles Gewicht",
-          "tolerance": "Toleranz für „im Plan“",
           "trend_window_days": "Trendfenster",
-          "overdue_days": "Erinnern nach",
           "max_jump": "Größte akzeptierte Änderung",
           "recalculation_interval": "Zusätzliche Neuberechnung",
           "allow_manual_entry": "Manuelle Eingabe erlauben"
         },
         "data_description": {
-          "tolerance": "Wie weit das Gewicht vom Plan abweichen darf, bevor sich der Status ändert.",
           "trend_window_days": "0 schaltet den Trend-Sensor ab.",
-          "overdue_days": "Tage ohne Messung, bis die Erinnerung ausgelöst wird. 0 schaltet die Erinnerung ab.",
           "max_jump": "Messungen, die weiter als dieser Wert von der vorherigen abweichen, werden verworfen und protokolliert. 0 akzeptiert jeden Wert.",
           "recalculation_interval": "Nur nötig, wenn du die Sensor-History in einer fremden Diagrammkarte darstellst. 0 rechnet um Mitternacht und nach jeder Messung neu.",
           "allow_manual_entry": "Erlaubt der Entität „Gewicht eintragen“, Messungen zu erfassen. Standardmäßig aus, wenn eine Gewichtsquelle konfiguriert ist, weil ein versehentlicher Wert schwer zu entfernen ist. Ohne Quelle immer an."
@@ -105,11 +101,15 @@
             "start_date": "Startdatum",
             "end_date": "Enddatum",
             "target_weight": "Zielgewicht",
-            "rate_per_week": "Änderung pro Woche"
+            "rate_per_week": "Änderung pro Woche",
+            "tolerance": "Toleranz für „im Plan“",
+            "overdue_days": "Erinnern nach"
           },
           "data_description": {
             "end_date": "Der letzte Tag zählt voll zum Ziel.",
-            "rate_per_week": "Negativ zum Abnehmen, positiv zum Zunehmen."
+            "rate_per_week": "Negativ zum Abnehmen, positiv zum Zunehmen.",
+            "tolerance": "Wie weit das Gewicht vom Plan abweichen darf, bevor sich der Status ändert. Ein Ziel, das höchstens so weit vom Zielgewicht entfernt endet, gilt als erreicht.",
+            "overdue_days": "Tage ohne Messung, bis die Erinnerung ausgelöst wird. 0 schaltet die Erinnerung ab."
           }
         }
       },
@@ -142,6 +142,12 @@
       },
       "rate_per_week": {
         "name": "Änderung pro Woche"
+      },
+      "tolerance": {
+        "name": "Toleranz"
+      },
+      "overdue_days": {
+        "name": "Erinnern nach"
       },
       "manual_weight": {
         "name": "Gewicht zum Erfassen"
@@ -218,6 +224,10 @@
       "name": "Gewicht erfassen",
       "description": "Erfasst eine Gewichtsmessung.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "weight": {
           "name": "Gewicht",
           "description": "Das gemessene Gewicht in Kilogramm."
@@ -232,6 +242,10 @@
       "name": "Ziel setzen",
       "description": "Ändert mehrere Zielwerte auf einmal.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "start_weight": {
           "name": "Startgewicht",
           "description": "Gewicht, von dem das Ziel ausgeht."
@@ -251,6 +265,14 @@
         "end_date": {
           "name": "Zieldatum",
           "description": "Letzter Tag des Ziels."
+        },
+        "tolerance": {
+          "name": "Toleranz für „im Plan“",
+          "description": "Wie weit das Gewicht vom Plan abweichen darf, bevor sich der Status ändert."
+        },
+        "overdue_days": {
+          "name": "Erinnern nach",
+          "description": "Tage ohne Messung, bis die Erinnerung ausgelöst wird. 0 schaltet sie ab."
         }
       }
     },
@@ -258,6 +280,10 @@
       "name": "Ziel anlegen",
       "description": "Fügt der Liste ein Ziel hinzu, wie Ziel hinzufügen auf der Seite der Integration.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "name": {
           "name": "Name",
           "description": "Muss sich von den anderen Zielen dieser Person unterscheiden."
@@ -286,6 +312,14 @@
           "name": "Enddatum",
           "description": "Letzter Tag des Ziels; er zählt voll."
         },
+        "tolerance": {
+          "name": "Toleranz für „im Plan“",
+          "description": "Standard ist die Toleranz des aktiven Ziels."
+        },
+        "overdue_days": {
+          "name": "Erinnern nach",
+          "description": "Standard ist der Wert des aktiven Ziels. 0 schaltet die Erinnerung ab."
+        },
         "activate": {
           "name": "Zum aktiven Ziel machen",
           "description": "Es ist immer nur ein Ziel aktiv."
@@ -294,16 +328,32 @@
     },
     "reset_goal": {
       "name": "Ziel deaktivieren",
-      "description": "Lässt kein Ziel aktiv. Das Ziel bleibt in der Liste, erfasste Gewichte bleiben erhalten."
+      "description": "Lässt kein Ziel aktiv. Das Ziel bleibt in der Liste, erfasste Gewichte bleiben erhalten.",
+      "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        }
+      }
     },
     "ignore_last_measurement": {
       "name": "Letzte Messung ignorieren",
-      "description": "Entfernt die letzte Messung aus Trend, Prognose und Status. Der Recorder behält seine eigene Kopie, der Punkt bleibt also in der Langzeit-History sichtbar."
+      "description": "Entfernt die letzte Messung aus Trend, Prognose und Status. Der Recorder behält seine eigene Kopie, der Punkt bleibt also in der Langzeit-History sichtbar.",
+      "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        }
+      }
     },
     "get_measurements": {
       "name": "Messungen abrufen",
       "description": "Gibt die erfassten Messungen zurück.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "days": {
           "name": "Tage",
           "description": "Nur Messungen der letzten Tage zurückgeben."
@@ -314,6 +364,10 @@
       "name": "History importieren",
       "description": "Füllt die interne History aus Gewichten, die Home Assistant bereits aufgezeichnet hat, damit Trend und Prognose sofort funktionieren.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "source_entity": {
           "name": "Quelle",
           "description": "Entität, aus der gelesen wird. Standard ist die konfigurierte Gewichtsquelle."
@@ -336,6 +390,10 @@
       "name": "Messung löschen",
       "description": "Entfernt eine einzelne Messung aus der internen History. Der Recorder behält seine eigene Kopie, der Punkt bleibt also in der Kurzzeit-Verlaufsgrafik.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "Das Road-to-Weight-Goal-Gerät, für das die Aktion gilt."
+        },
         "timestamp": {
           "name": "Zeitstempel",
           "description": "Wann die Messung erfasst wurde. Über die Aktion „Messungen abrufen“ nachschlagen."
@@ -352,7 +410,7 @@
       "message": "Dieser Wert wird aus den anderen berechnet. Ändere unter Ziel ändern, worüber das Ziel festgelegt wird, wenn du ihn direkt setzen willst. Aktueller Modus: {mode}."
     },
     "no_target": {
-      "message": "Es wurde keine Road-to-Weight-Goal-Entität ausgewählt."
+      "message": "Wähle ein Road-to-Weight-Goal-Gerät aus."
     },
     "nothing_to_change": {
       "message": "Mindestens einen Zielwert übergeben."

@@ -204,10 +204,10 @@ async def test_options_change_keeps_the_entry_loaded(
     await hass.async_block_till_done()
 
     hass.config_entries.async_update_entry(
-        mock_entry, options={**mock_entry.options, "tolerance": 2.0}
+        mock_entry, options={**mock_entry.options, "trend_window_days": 14}
     )
     await hass.async_block_till_done()
 
     assert mock_entry.runtime_data is manager_before
-    assert manager_before.tolerance == 2.0
+    assert manager_before.trend_window_days == 14
     assert manager_before.current_weight == 80.0

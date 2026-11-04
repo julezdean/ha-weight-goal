@@ -1,9 +1,10 @@
 record_weight:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     weight:
       required: true
       example: 78.4
@@ -21,11 +22,12 @@ record_weight:
         datetime:
 
 set_goal:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     start_weight:
       required: false
       selector:
@@ -60,13 +62,32 @@ set_goal:
       required: false
       selector:
         date:
+    tolerance:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    overdue_days:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 90
+          step: 1
+          unit_of_measurement: d
+          mode: box
 
 create_goal:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     name:
       required: true
       example: Summer
@@ -115,6 +136,24 @@ create_goal:
       required: true
       selector:
         date:
+    tolerance:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.1
+          unit_of_measurement: kg
+          mode: box
+    overdue_days:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 90
+          step: 1
+          unit_of_measurement: d
+          mode: box
     activate:
       required: false
       default: true
@@ -122,23 +161,28 @@ create_goal:
         boolean:
 
 reset_goal:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
 
 ignore_last_measurement:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
 
 get_measurements:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     days:
       required: false
       example: 30
@@ -150,11 +194,12 @@ get_measurements:
           mode: box
 
 import_history:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     source_entity:
       required: false
       selector:
@@ -185,11 +230,12 @@ import_history:
         boolean:
 
 delete_measurement:
-  target:
-    entity:
-      integration: weight_goal
-      domain: sensor
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: weight_goal
     timestamp:
       required: true
       example: "2026-09-01T07:42:00+02:00"

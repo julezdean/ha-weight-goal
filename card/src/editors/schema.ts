@@ -52,13 +52,18 @@ export function ensureFormLoaded(): Promise<void> {
 
 type T = (key: TranslationKey) => string;
 
-/** Labels come from `computeLabel`, so this one needs no translator. */
+/**
+ * Labels come from `computeLabel`, so this one needs no translator.
+ *
+ * The device rather than an entity: every entity of a person leads to the same
+ * card, and a picker listing all of them only asks which one is right.
+ */
 export function anchorSchema(): FormSchema[] {
   return [
     {
-      name: "entity",
+      name: "device_id",
       required: true,
-      selector: { entity: { integration: DOMAIN, domain: "sensor" } },
+      selector: { device: { integration: DOMAIN } },
     },
     {
       name: "",
@@ -316,7 +321,7 @@ export function chartSchema(t: T): FormSchema[] {
 
 /** Field name to translation key. Names are unique across both schemas. */
 const LABEL_KEYS: Record<string, TranslationKey> = {
-  entity: "editor.entity",
+  device_id: "editor.device",
   name: "editor.name",
   icon: "editor.icon",
   badges: "editor.badges",
@@ -354,7 +359,7 @@ const LABEL_KEYS: Record<string, TranslationKey> = {
 };
 
 const HELPER_KEYS: Record<string, TranslationKey> = {
-  entity: "editor.entity_help",
+  device_id: "editor.device_help",
   badges: "editor.badges_help",
   source: "editor.source_help",
   average: "editor.average_help",

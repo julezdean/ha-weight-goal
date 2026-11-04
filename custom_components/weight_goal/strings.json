@@ -35,17 +35,13 @@
           "source_entity": "Weight source",
           "min_weight": "Lowest plausible weight",
           "max_weight": "Highest plausible weight",
-          "tolerance": "On track tolerance",
           "trend_window_days": "Trend window",
-          "overdue_days": "Remind after",
           "max_jump": "Largest accepted change",
           "recalculation_interval": "Extra recalculation",
           "allow_manual_entry": "Allow manual entry"
         },
         "data_description": {
-          "tolerance": "How far the weight may deviate from the plan before the status changes.",
           "trend_window_days": "0 switches the trend sensor off.",
-          "overdue_days": "Days without a measurement before the reminder fires. 0 switches the reminder off.",
           "max_jump": "Measurements that differ from the previous one by more than this are ignored and logged. 0 accepts every value.",
           "recalculation_interval": "Only needed if you plot the sensor history in a third party chart card. 0 recalculates at midnight and after every measurement.",
           "allow_manual_entry": "Let the manual weight entity record measurements. Off by default when a weight source is configured, because an accidental value is awkward to remove. Always on when there is no source."
@@ -105,11 +101,15 @@
             "start_date": "Start date",
             "end_date": "End date",
             "target_weight": "Target weight",
-            "rate_per_week": "Change per week"
+            "rate_per_week": "Change per week",
+            "tolerance": "On track tolerance",
+            "overdue_days": "Remind after"
           },
           "data_description": {
             "end_date": "The last day counts towards the goal in full.",
-            "rate_per_week": "Negative to lose weight, positive to gain."
+            "rate_per_week": "Negative to lose weight, positive to gain.",
+            "tolerance": "How far the weight may deviate from the plan before the status changes. A goal that ends at most this far from its target counts as reached.",
+            "overdue_days": "Days without a measurement before the reminder fires. 0 switches the reminder off."
           }
         }
       },
@@ -142,6 +142,12 @@
       },
       "rate_per_week": {
         "name": "Change per week"
+      },
+      "tolerance": {
+        "name": "Tolerance"
+      },
+      "overdue_days": {
+        "name": "Remind after"
       },
       "manual_weight": {
         "name": "Weight to record"
@@ -218,6 +224,10 @@
       "name": "Record weight",
       "description": "Records a weight measurement.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "weight": {
           "name": "Weight",
           "description": "The measured weight in kilograms."
@@ -232,6 +242,10 @@
       "name": "Set goal",
       "description": "Changes several goal values at once.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "start_weight": {
           "name": "Start weight",
           "description": "Weight the goal starts from."
@@ -251,6 +265,14 @@
         "end_date": {
           "name": "End date",
           "description": "Last day of the goal."
+        },
+        "tolerance": {
+          "name": "On track tolerance",
+          "description": "How far the weight may deviate from the plan before the status changes."
+        },
+        "overdue_days": {
+          "name": "Remind after",
+          "description": "Days without a measurement before the reminder fires. 0 switches it off."
         }
       }
     },
@@ -258,6 +280,10 @@
       "name": "Create goal",
       "description": "Adds a goal to the list, like Add goal on the integration page.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "name": {
           "name": "Name",
           "description": "Must differ from the other goals of this person."
@@ -286,6 +312,14 @@
           "name": "End date",
           "description": "Last day of the goal; it counts in full."
         },
+        "tolerance": {
+          "name": "On track tolerance",
+          "description": "Defaults to the tolerance of the active goal."
+        },
+        "overdue_days": {
+          "name": "Remind after",
+          "description": "Defaults to the value of the active goal. 0 switches the reminder off."
+        },
         "activate": {
           "name": "Make it the active goal",
           "description": "Only one goal is active at a time."
@@ -294,16 +328,32 @@
     },
     "reset_goal": {
       "name": "Deactivate goal",
-      "description": "Leaves no goal active. The goal stays in the list, and recorded weights are kept."
+      "description": "Leaves no goal active. The goal stays in the list, and recorded weights are kept.",
+      "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        }
+      }
     },
     "ignore_last_measurement": {
       "name": "Ignore last measurement",
-      "description": "Removes the most recent measurement from the trend, the projection and the status. The recorder keeps its own copy, so the point stays in long term history."
+      "description": "Removes the most recent measurement from the trend, the projection and the status. The recorder keeps its own copy, so the point stays in long term history.",
+      "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        }
+      }
     },
     "get_measurements": {
       "name": "Get measurements",
       "description": "Returns the recorded measurements.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "days": {
           "name": "Days",
           "description": "Only return measurements from the last few days."
@@ -314,6 +364,10 @@
       "name": "Import history",
       "description": "Fills the internal history from weights Home Assistant already recorded, so the trend and the projection work straight away.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "source_entity": {
           "name": "Source",
           "description": "Entity to read from. Defaults to the configured weight source."
@@ -336,6 +390,10 @@
       "name": "Delete measurement",
       "description": "Removes a single measurement from the internal history. The recorder keeps its own copy, so the point stays in the short term history graph.",
       "fields": {
+        "device_id": {
+          "name": "Person",
+          "description": "The Road to Weight Goal device to act on."
+        },
         "timestamp": {
           "name": "Timestamp",
           "description": "When the measurement was recorded. Use the get_measurements action to look it up."
@@ -352,7 +410,7 @@
       "message": "This value is calculated from the others. Change how the goal is defined under Change goal if you want to set it directly. Current mode: {mode}."
     },
     "no_target": {
-      "message": "No Road to Weight Goal entity was targeted."
+      "message": "Pick a Road to Weight Goal device."
     },
     "nothing_to_change": {
       "message": "Pass at least one goal value."

@@ -67,6 +67,12 @@ export class WgGoalEditor extends LitElement {
           )}
           ${this._dateRow(entities.start_date)}
           ${this._dateRow(entities.end_date)}
+          ${this._numberRow(entities.tolerance, model.unit, false)}
+          ${this._numberRow(
+            entities.overdue_days,
+            attributeOf<string>(this.hass, entities.overdue_days, "unit_of_measurement") ?? "d",
+            false,
+          )}
         </div>
         ${mode === null
           ? nothing

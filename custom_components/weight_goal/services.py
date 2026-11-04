@@ -33,11 +33,13 @@ from .const import (
     CONF_ACTIVATE,
     CONF_END_DATE,
     CONF_GOAL_MODE,
+    CONF_OVERDUE_DAYS,
     CONF_RATE_PER_WEEK,
     CONF_START_DATE,
     CONF_SOURCE_ENTITY,
     CONF_START_WEIGHT,
     CONF_TARGET_WEIGHT,
+    CONF_TOLERANCE,
     DEFAULT_MATCH_MINUTES,
     DOMAIN,
     GOAL_MODES,
@@ -58,10 +60,13 @@ from .history_import import MAX_IMPORT_DAYS, async_import_history
 if TYPE_CHECKING:
     from .manager import WeightGoalManager
 
-#: The service picker offers an entity, a device, an area, a floor or a label,
-#: and it offers them whatever the target in services.yaml narrows down to. A
-#: schema that only knows entity_id refuses the other four outright, so it takes
-#: all of them and leaves an empty target to _managers, which says so in words.
+#: services.yaml offers one field, the device, because every entity of a person
+#: leads to the same goal and a picker listing all of them only asks which one
+#: is right. It has no target on purpose: with one, the frontend moves the
+#: device into it and offers every entity again. Calls written against a
+#: target, with an entity, an area, a floor or a label, keep working, so the
+#: schema takes all of them and leaves an empty one to _managers, which says so
+#: in words.
 BASE_SCHEMA = vol.Schema(cv.TARGET_SERVICE_FIELDS)
 
 RECORD_WEIGHT_SCHEMA = BASE_SCHEMA.extend(
@@ -78,6 +83,12 @@ SET_GOAL_SCHEMA = BASE_SCHEMA.extend(
         vol.Optional(CONF_RATE_PER_WEEK): vol.Coerce(float),
         vol.Optional(CONF_START_DATE): cv.date,
         vol.Optional(CONF_END_DATE): cv.date,
+        vol.Optional(CONF_TOLERANCE): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=20)
+        ),
+        vol.Optional(CONF_OVERDUE_DAYS): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=90)
+        ),
     }
 )
 
@@ -90,6 +101,12 @@ CREATE_GOAL_SCHEMA = BASE_SCHEMA.extend(
         vol.Optional(CONF_RATE_PER_WEEK): vol.Coerce(float),
         vol.Optional(CONF_START_DATE): cv.date,
         vol.Required(CONF_END_DATE): cv.date,
+        vol.Optional(CONF_TOLERANCE): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=20)
+        ),
+        vol.Optional(CONF_OVERDUE_DAYS): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=90)
+        ),
         vol.Optional(CONF_ACTIVATE, default=True): cv.boolean,
     }
 )
@@ -172,6 +189,8 @@ def async_register_services(hass: HomeAssistant) -> None:
                 CONF_RATE_PER_WEEK,
                 CONF_START_DATE,
                 CONF_END_DATE,
+                CONF_TOLERANCE,
+                CONF_OVERDUE_DAYS,
             )
         }
         if not changes:
@@ -203,6 +222,8 @@ def async_register_services(hass: HomeAssistant) -> None:
                 CONF_RATE_PER_WEEK,
                 CONF_START_DATE,
                 CONF_END_DATE,
+                CONF_TOLERANCE,
+                CONF_OVERDUE_DAYS,
             )
         }
         created: dict[str, str] = {}

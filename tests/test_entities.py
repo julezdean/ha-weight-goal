@@ -14,6 +14,8 @@ EXPECTED = {
     "number.julien_start_weight",
     "number.julien_target_weight",
     "number.julien_rate_per_week",
+    "number.julien_tolerance",
+    "number.julien_overdue_days",
     "number.julien_manual_weight",
     "button.julien_record_weight",
     "date.julien_start_date",

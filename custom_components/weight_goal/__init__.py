@@ -15,10 +15,14 @@ from .const import (
     CONF_ACTIVE_GOAL,
     CONF_END_DATE,
     CONF_GOAL_MODE,
+    CONF_OVERDUE_DAYS,
     CONF_START_DATE,
     CONF_START_WEIGHT,
     CONF_TARGET_WEIGHT,
+    CONF_TOLERANCE,
     DEFAULT_GOAL_MODE,
+    DEFAULT_OVERDUE_DAYS,
+    DEFAULT_TOLERANCE,
     DOMAIN,
     GOAL_KEYS,
     SUBENTRY_GOAL,
@@ -58,14 +62,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Move the one goal of version 1 into the goal list of version 2.
+    """Bring an entry from an earlier version up to version 3.
 
     Version 1 kept a single goal in the options. It becomes the first goal of
     the list, named after its period, and stays active, so every entity reads
     what it read before. An incomplete goal is carried over as well: dropping
     values someone typed in is worse than a goal that still needs its end date.
+
+    Version 2 kept the tolerance and the overdue days with the person. Every
+    goal gets a copy of them. For a goal that is already over this is the
+    value its outcome was judged with until now; which one applied while it
+    ran is not recorded anywhere.
     """
-    if entry.version > 2:
+    if entry.version > 3:
         return False
     if entry.version == 1:
         options = dict(entry.options)
@@ -82,6 +91,20 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             options[CONF_ACTIVE_GOAL] = subentry.subentry_id
         hass.config_entries.async_update_entry(entry, options=options, version=2)
         _LOGGER.debug("%s: migrated to version 2", entry.title)
+    if entry.version == 2:
+        options = dict(entry.options)
+        carried = {
+            CONF_TOLERANCE: options.pop(CONF_TOLERANCE, DEFAULT_TOLERANCE),
+            CONF_OVERDUE_DAYS: options.pop(CONF_OVERDUE_DAYS, DEFAULT_OVERDUE_DAYS),
+        }
+        for subentry in list(entry.subentries.values()):
+            if subentry.subentry_type != SUBENTRY_GOAL:
+                continue
+            hass.config_entries.async_update_subentry(
+                entry, subentry, data={**carried, **subentry.data}
+            )
+        hass.config_entries.async_update_entry(entry, options=options, version=3)
+        _LOGGER.debug("%s: migrated to version 3", entry.title)
     return True
 
 
