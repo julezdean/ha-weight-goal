@@ -121,14 +121,11 @@ While a goal runs, the status turns `reached` only once the target itself is
 reached. Inside the tolerance before that it is `on_track`.
 
 Updating from 0.10 or earlier turns the one goal there was into the first goal
-of the list, named after its period, and makes it active. Nothing else changes:
-the entity IDs, the values and the status stay the same. Rename it with **Change
-goal**, and add your earlier goals as inactive ones if you want them in the
-chart.
-
-Updating from 0.11.0-beta.4 or earlier hands the on track tolerance and the
-remind after days of the person to every goal it has, and takes them off
-**Configure**.
+of the list, named after its period, and makes it active. The on track
+tolerance and the remind after days move from **Configure** into that goal,
+with the values they had. Nothing else changes: the entity IDs, the values and
+the status stay the same. Rename it with **Change goal**, and add your earlier
+goals as inactive ones if you want them in the chart.
 
 ## Entities
 

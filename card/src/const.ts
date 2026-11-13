@@ -2,7 +2,7 @@ export const DOMAIN = "weight_goal";
 
 export const CARD_TYPE = "weight-goal-card";
 
-export const CARD_VERSION = "0.11.0-beta.6";
+export const CARD_VERSION = "0.11.0";
 
 export const REPOSITORY = "https://github.com/julezdean/ha-weight-goal";
 

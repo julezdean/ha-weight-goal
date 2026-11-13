@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-13
+
 ### Added
 
 - A list of goals per person. Goals are added, changed and deleted on the
@@ -61,10 +63,8 @@ All notable changes to this project are documented here. The format follows
   or the goal list appears below it after the update.
 - The on track tolerance and the remind after days belong to each goal and are
   no longer set under **Configure → Settings**. Updating copies the values the
-  person had into every goal, which migrates the config entry to version 3; it
-  cannot be loaded by 0.11.0-beta.4 or earlier again. A new goal takes them
-  over from the active one. Without an active goal there is
-  no overdue reminder.
+  person had into the goal, and a new goal takes them over from the active one.
+  Without an active goal there is no overdue reminder.
 - A goal that ends within its tolerance of the target counts as reached, for a
   goal that loses or gains weight as well, not only for one that holds it. The
   outcome uses the goal's own tolerance, so changing the tolerance today no
@@ -407,6 +407,7 @@ First release.
   can be switched back on in the options.
 - English and German translations.
 
+[0.11.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.11.0
 [0.10.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.10.0
 [0.9.0]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.9.0
 [0.8.1]: https://github.com/julezdean/ha-weight-goal/releases/tag/v0.8.1
