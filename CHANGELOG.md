@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Requires Home Assistant 2026.1 or later. The fallback for the name
+  `TargetSelectorData`, which Home Assistant replaced in 2026.1 and is
+  removing, is gone. Contributed by @gjohansson-ST.
+
 ## [0.11.0] - 2026-11-13
 
 ### Added
