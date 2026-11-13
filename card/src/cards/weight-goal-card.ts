@@ -11,7 +11,7 @@ import {
   isActionable,
   type ActionKind,
 } from "../lib/actions";
-import type { ChartOptions, HomeAssistant, WeightGoalCardConfig } from "../types";
+import type { ChartOptions, WeightGoalCardConfig } from "../types";
 
 import "../components/wg-actions";
 import "../components/wg-badges";
@@ -32,14 +32,11 @@ export class WeightGoalCard extends WeightGoalBaseCard<WeightGoalCardConfig> {
   });
 
   public static getStubConfig(
-    hass: HomeAssistant | undefined,
+    _hass: unknown,
     entities: string[],
   ): Partial<WeightGoalCardConfig> {
     const status = entities.find((id) => id.endsWith("_status"));
-    const deviceId = status ? hass?.entities?.[status]?.device_id : undefined;
-    return deviceId
-      ? { type: `custom:${CARD_TYPE}`, device_id: deviceId }
-      : { type: `custom:${CARD_TYPE}`, entity: status ?? entities[0] };
+    return { type: `custom:${CARD_TYPE}`, entity: status ?? entities[0] };
   }
 
   public static async getConfigElement(): Promise<HTMLElement> {

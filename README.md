@@ -384,7 +384,7 @@ entity: sensor.alex_status
 One entity is all it needs. From it the card finds the device and every other
 entity of the same goal, so the numbers, the dates, the buttons and the chart
 all work without listing anything. The visual editor asks for the person and
-writes its `device_id` instead, which works the same way.
+writes its status sensor here.
 
 It shows the current weight and how far it is from the plan, the chart, the two
 progress bars next to each other, the actions that are currently available, and
@@ -444,7 +444,7 @@ which wins over the flat form.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `entity` | – | Any entity of the goal. Required unless you set `device_id` or `entities`. A tap without `tap_action` opens it. |
-| `device_id` | – | The device of the goal, what the visual editor writes. Without `entity` a tap opens the status sensor. |
+| `device_id` | – | Alternative anchor, for generated dashboards. Without `entity` a tap opens the status sensor. The visual editor replaces it with the status sensor of the device. |
 | `entities` | – | Override individual entities by key, for example `entities: {weight: sensor.something_else}`. Only needed if discovery gets something wrong. |
 | `name` | device name | Header text. |
 | `icon` | `mdi:scale-bathroom` | Header icon. |

@@ -42,9 +42,17 @@ describe("picking the person", () => {
 
   const hass = {
     states: {},
-    entities: {
-      "sensor.julien_status": { entity_id: "sensor.julien_status", device_id: "julien" },
-    },
+    entities: Object.fromEntries(
+      ["julien_status", "julien_weight", "anna_weight", "anna_status"].map((id) => [
+        `sensor.${id}`,
+        {
+          entity_id: `sensor.${id}`,
+          platform: "weight_goal",
+          device_id: id.split("_")[0],
+          translation_key: id.split("_")[1],
+        },
+      ]),
+    ),
   } as unknown as HomeAssistant;
 
   /** What the editor makes of a form value, for a card configured as `config`. */
@@ -73,9 +81,31 @@ describe("picking the person", () => {
     expect(written.device_id).toBeUndefined();
   });
 
-  it("drops the entity once another person is picked", () => {
+  it("keeps the status sensor of another person once that one is picked", () => {
     const written = change(byEntity, { device_id: "anna" });
-    expect(written.entity).toBeUndefined();
-    expect(written.device_id).toBe("anna");
+    expect(written.entity).toBe("sensor.anna_status");
+    expect(written.device_id).toBeUndefined();
+  });
+
+  it("leaves another entity of the same person alone", () => {
+    const written = change(
+      { type: "custom:weight-goal-card", entity: "sensor.julien_weight" },
+      { device_id: "julien", show_chart: false },
+    );
+    expect(written.entity).toBe("sensor.julien_weight");
+  });
+
+  it("turns a device id into the status sensor it stands for", () => {
+    const written = change(
+      { type: "custom:weight-goal-card", device_id: "anna" },
+      { show_chart: false },
+    );
+    expect(written.entity).toBe("sensor.anna_status");
+    expect(written.device_id).toBeUndefined();
+  });
+
+  it("keeps a device id it cannot name an entity for", () => {
+    const written = change({ type: "custom:weight-goal-card" }, { device_id: "nobody" });
+    expect(written.device_id).toBe("nobody");
   });
 });

@@ -250,12 +250,12 @@ describe("a card set up by device", () => {
     expect((action.detail.config as WeightGoalCardConfig).entity).toBe("sensor.julien_status");
   });
 
-  it("is what a new card starts from", async () => {
+  it("is not what a new card starts from: that names the status sensor", async () => {
     const { WeightGoalCard } = await import("../src/cards/weight-goal-card");
     const hass = buildHass();
     expect(WeightGoalCard.getStubConfig(hass, Object.keys(hass.states))).toEqual({
       type: "custom:weight-goal-card",
-      device_id: "dev1",
+      entity: "sensor.julien_status",
     });
   });
 });

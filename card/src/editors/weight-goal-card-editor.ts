@@ -119,8 +119,7 @@ export class WeightGoalCardEditor extends LitElement {
       line: "smooth",
       average: 7,
       ...config,
-      // A card written before the device picker names an entity; the picker
-      // shows the device it belongs to.
+      // The picker shows the device; what the config keeps is an entity of it.
       device_id: config.device_id ?? this._entityDevice(),
       // Custom badges are objects, which the multi-select cannot represent.
       // Showing only the built-in ones keeps the picker honest; the object
@@ -153,17 +152,21 @@ export class WeightGoalCardEditor extends LitElement {
   private _changed = (event: CustomEvent): void => {
     event.stopPropagation();
     const value = { ...(event.detail.value as WeightGoalCardConfig) };
-    const fromEntity = this._entityDevice();
-    if (!this._config?.device_id && value.device_id === fromEntity) {
-      // Only shown, not chosen: the card keeps finding its device by entity.
-      delete value.device_id;
-    } else if (
-      value.entity &&
-      value.device_id !== (this._config?.device_id ?? fromEntity)
-    ) {
-      // Another person was picked. The old entity would still lead the card
-      // to the old one and be what a tap opens.
-      delete value.entity;
+    // The picker chooses a device, but a device id says nothing to someone
+    // reading the YAML. The card keeps an entity of it instead, the status
+    // sensor, which is also what a tap opens. An entity already of the picked
+    // device stays, whichever one it is.
+    const picked = value.device_id;
+    delete value.device_id;
+    if (picked && picked !== this._entityDevice()) {
+      const status = this.hass ? discover(this.hass, { device_id: picked }).target : undefined;
+      if (status) {
+        value.entity = status;
+      } else {
+        // A device without entities known to the frontend: better unreadable
+        // than lost.
+        value.device_id = picked;
+      }
     }
     if (typeof value.range === "string" && /^\d+$/.test(value.range)) {
       value.range = Number(value.range);

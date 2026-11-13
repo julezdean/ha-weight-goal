@@ -74,10 +74,12 @@ All notable changes to this project are documented here. The format follows
   instead of a target that listed every entity of every person. Every entity
   led to the same goal, so the choice between them meant nothing. Calls in YAML
   that name an entity, area, floor or label keep working.
-- The card's visual editor picks the person in the same way and writes
-  `device_id`. A card set up by `entity` keeps it until another person is
-  picked. A tap without `tap_action` on a card without `entity` opens the
-  status sensor.
+- The card's visual editor picks the person in the same way and writes the
+  status sensor of that person as `entity`, so the YAML stays readable. A card
+  whose `entity` already belongs to the person keeps it, and a `device_id` is
+  replaced by the status sensor once the card is saved in the editor. A card
+  written with `device_id` alone opens the status sensor on a tap without
+  `tap_action`.
 - The visual editor offers **Save reading** only for a goal that takes manual
   readings, and **Day of the reading** only while **Save reading** is on. Both
   used to be there for a card that cannot show them. Values already in the
